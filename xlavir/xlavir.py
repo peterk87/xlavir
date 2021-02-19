@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from xlavir import qc
-from xlavir.io import ExcelSheetDataFrame, SheetName
+from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.tools import mosdepth, samtools, consensus, pangolin
 from xlavir.tools.nextflow import exec_report
 from xlavir.tools.nextflow.exec_report import to_dataframe
