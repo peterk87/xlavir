@@ -1,5 +1,5 @@
 ======
-xlavir
+xlavir - **WORK IN PROGRESS**
 ======
 
 
@@ -25,10 +25,10 @@ Features
 --------
 
 * Collect sample results from a `nf-core/viralrecon`_ or `peterk87/nf-virontus`_ into a Excel report
-  * Samtools_ read mapping stats (``flagstat``)
-  * Mosdepth_ read mapping coverage information
-  * Variant calling information (Bcftools_ stats, SnpEff_ and SnpSift_ results, VCF file information)
-  * Consensus sequences
+    * Samtools_ read mapping stats (``flagstat``)
+    * Mosdepth_ read mapping coverage information
+    * **TODO:** Variant calling information (Bcftools_ stats, SnpEff_ and SnpSift_ results, VCF file information) 
+    * Consensus sequences
 * QA/QC of sample analysis results (basic PASS/FAIL based on minimum genome coverage and depth)
 * Nextflow workflow execution information
 * Prepend worksheets from other Excel documents into the report (e.g. cover page/sheet, sample sheet, lab results)
