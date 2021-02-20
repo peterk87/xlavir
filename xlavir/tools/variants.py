@@ -1,6 +1,7 @@
 import os
 import re
 from enum import Enum
+from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Iterable
 import logging
@@ -304,5 +305,14 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
 
 def to_dataframe(dfs: Iterable[pd.DataFrame]) -> pd.DataFrame:
     df = pd.concat(list(dfs))
-    df.sort_values('sample', inplace=True)
+    df.sort_values(['sample', 'POS'], inplace=True)
     return df.set_index('sample').rename(columns={x: y for x, y in variants_cols})
+
+
+def to_variant_pivot_table(df: pd.DataFrame) -> pd.DataFrame:
+    df_vars = df.copy()
+    df_vars.reset_index(inplace=True)
+    df_pivot = pd.pivot_table(df_vars, index='sample', columns='Mutation', values='Alternate Allele Frequency')
+    pivot_cols = list(zip(df_pivot.columns, df_pivot.columns.str.replace(r'[A-Z]+(\d+).*', r'\1').astype(int)))
+    pivot_cols.sort(key=itemgetter(1))
+    return df_pivot[[x for x, y in pivot_cols]]

@@ -44,10 +44,18 @@ def run(input_dir: Path,
                                        df=df_pangolin,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1))))
     if sample_variants:
+        df_variants = variants.to_dataframe(sample_variants.values())
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.variants.value,
-                                       df=variants.to_dataframe(sample_variants.values()),
+                                       df=df_variants,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
                                        include_header_width=False))
+        df_varmap = variants.to_variant_pivot_table(df_variants)
+        max_index_length = df_varmap.index.str.len().max()
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmap.value,
+                                       df=df_varmap,
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep=0.0),
+                                       autofit=False,
+                                       column_widths=[max_index_length + 2] + [3 for _ in range(df_varmap.columns.size)]))
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.consensus.value,
                                    df=consensus.get_info(basedir=input_dir),
                                    pd_to_excel_kwargs=dict(index=None, header=None)))

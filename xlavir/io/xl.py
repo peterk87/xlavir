@@ -11,6 +11,7 @@ from xlsxwriter.worksheet import Worksheet
 
 from xlavir.images import SheetImage
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
+from xlavir.qc import QualityRequirements
 from xlavir.util import get_col_widths, get_row_heights
 
 logger = logging.getLogger(__name__)
@@ -56,6 +57,7 @@ def copy_spreadsheet(src_path: Path,
 
 def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                       output_xlsx: Path,
+                      quality_reqs: QualityRequirements,
                       images_for_sheets: Optional[List[SheetImage]] = None):
     with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
         monospace = dict(font_name='Courier New')
@@ -77,6 +79,11 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                                                 'border': 1,
                                                 'align': 'center',
                                                 'valign': 'top'})
+        varmap_header_fmt = book.add_format(dict(border=1,
+                                                 align='left',
+                                                 valign='bottom',
+                                                 rotation=45,
+                                                 font_name='Courier New'))
         red_bg_fmt = book.add_format(dict(bg_color='red'))
         float_cols = {'Mean Coverage Depth'}
         perc_cols = {'% Genome Coverage'}
@@ -112,6 +119,24 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
 
                 for i, idx in enumerate(esdf.df.index, 1):
                     sheet.set_row(i, get_row_heights(esdf.df, idx), monospace_wrap_fmt)
+
+            if esdf.sheet_name == SheetName.varmap.value:
+                sheet.set_row(0, 60)
+                for i, col_name in enumerate(idx_and_cols):
+                    if i == 0:
+                        continue
+                    sheet.write_string(0, i, string=col_name, cell_format=varmap_header_fmt)
+                sheet.conditional_format(first_row=1,
+                                         first_col=1,
+                                         last_row=esdf.df.shape[0],
+                                         last_col=esdf.df.shape[1],
+                                         options=dict(type='3_color_scale',
+                                                      min_type='num',
+                                                      mid_type='num',
+                                                      max_type='num',
+                                                      min_value=0.0,
+                                                      mid_value=quality_reqs.major_allele_freq,
+                                                      max_value=1.0))
 
             if esdf.sheet_name == SheetName.consensus.value:
                 sheet.hide_gridlines(2)

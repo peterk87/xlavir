@@ -10,6 +10,7 @@ from rich.logging import RichHandler
 from xlavir.images import get_images_for_sheets
 from xlavir.qc import QualityRequirements
 from xlavir.xlavir import run
+from xlavir.io.xl import write_xlsx_report
 
 app = typer.Typer()
 
@@ -87,9 +88,10 @@ def main(
     dfs = run(input_dir=input_dir,
               pangolin_lineage_csv=pangolin_lineage_csv,
               quality_reqs=quality_reqs)
-    from xlavir.io.xl import write_xlsx_report
+
     write_xlsx_report(dfs=dfs,
                       output_xlsx=output,
+                      quality_reqs=quality_reqs,
                       images_for_sheets=images_for_sheets)
     if spreadsheet:
         from xlavir.io.xl import copy_spreadsheet
