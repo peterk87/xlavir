@@ -1,5 +1,5 @@
 ======
-xlavir - **WORK IN PROGRESS**
+xlavir
 ======
 
 
