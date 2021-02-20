@@ -121,7 +121,7 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                     sheet.set_row(i, get_row_heights(esdf.df, idx), monospace_wrap_fmt)
 
             if esdf.sheet_name == SheetName.varmap.value:
-                sheet.set_row(0, 60)
+                sheet.set_row(0, max(len(x) for x in idx_and_cols)*5)
                 for i, col_name in enumerate(idx_and_cols):
                     if i == 0:
                         continue
