@@ -63,7 +63,7 @@ def extract_sample_name(filename: str,
     return out
 
 
-def get_col_widths(df, index=False, offset=2, max_width: int = None):
+def get_col_widths(df, index=False, offset=2, max_width: int = None, include_header=True):
     """Calculate column widths based on column headers and contents"""
     if index:
         idx_max = max([len(str(s)) for s in df.index.values] + [len(str(df.index.name))]) + offset
@@ -72,7 +72,17 @@ def get_col_widths(df, index=False, offset=2, max_width: int = None):
         yield idx_max
     for c in df.columns:
         # get max length of column contents and length of column header
-        width = np.max([df[c].astype(str).str.len().max() + 1, len(c) + 1]) + offset
+        max_width_cells = df[c].astype(str).str.len().max() + 1
+        if include_header:
+            width = np.max([max_width_cells, len(c) + 1]) + offset
+        else:
+            if isinstance(c, str):
+                col_words = c.split()
+                col_words.sort(key=len, reverse=True)
+                max_word_size = int(len(col_words[-1]) * 1.25 + 1)
+                width = np.max([max_width_cells, max_word_size]) + offset
+            else:
+                width = max_width_cells + offset
         if max_width:
             width = min(width, max_width)
         yield width
@@ -94,3 +104,15 @@ def list_get(xs: Optional[List], idx: int, default=None):
         return xs[idx]
     except (TypeError, IndexError):
         return default
+
+
+def try_parse_number(s: str) -> Union[int, float, str]:
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    return s

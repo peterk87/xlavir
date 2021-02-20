@@ -30,7 +30,7 @@ qc_presets = dict(
     scov2_nanopore=QualityRequirements(
         min_genome_coverage=0.95,
         min_median_depth=50,
-        low_coverage_threshold=10
+        low_coverage_threshold=10,
     )
 )
 
@@ -45,6 +45,7 @@ def main(
                                                                     'Used for calculation of % genome coverage.'),
     min_genome_coverage: Optional[float] = typer.Option(None, help='Min genome coverage. e.g. 0.95 == 95%'),
     min_median_depth: Optional[int] = typer.Option(None, help='Min median coverage depth'),
+    major_allele_freq: float = typer.Option(0.75, help='Major alternate allele fraction'),
     spreadsheet: Optional[List[Path]] = typer.Option(None, help='Copy Excel worksheet from workbook. '
                                                                 'Can specify multiple.'),
     image: Optional[List[Path]] = typer.Option(None, help="Image path for image to add to sheet"),
@@ -80,6 +81,8 @@ def main(
         quality_reqs.low_coverage_threshold = low_coverage_threshold
     if min_median_depth:
         quality_reqs.min_median_depth = min_median_depth
+    if major_allele_freq:
+        quality_reqs.major_allele_freq = major_allele_freq
 
     dfs = run(input_dir=input_dir,
               pangolin_lineage_csv=pangolin_lineage_csv,

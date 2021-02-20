@@ -5,7 +5,7 @@ from typing import Optional, List
 
 from xlavir import qc
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
-from xlavir.tools import mosdepth, samtools, consensus, pangolin
+from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants
 from xlavir.tools.nextflow import exec_report
 from xlavir.tools.nextflow.exec_report import to_dataframe
 
@@ -27,6 +27,8 @@ def run(input_dir: Path,
         for sample, info in sample_mapping_info.items():
             logger.debug(info.dict())
 
+    sample_variants = variants.get_info(input_dir)
+
     dfs: List[ExcelSheetDataFrame] = []
     df_stats = qc.create_qc_stats_dataframe(sample_depth_info,
                                             sample_mapping_info,
@@ -41,6 +43,11 @@ def run(input_dir: Path,
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.pangolin.value,
                                        df=df_pangolin,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1))))
+    if sample_variants:
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.variants.value,
+                                       df=variants.to_dataframe(sample_variants.values()),
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                       include_header_width=False))
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.consensus.value,
                                    df=consensus.get_info(basedir=input_dir),
                                    pd_to_excel_kwargs=dict(index=None, header=None)))
