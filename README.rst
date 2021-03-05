@@ -27,13 +27,20 @@ Features
 * Collect sample results from a `nf-core/viralrecon`_ or `peterk87/nf-virontus`_ into a Excel report
     * Samtools_ read mapping stats (``flagstat``)
     * Mosdepth_ read mapping coverage information
-    * **TODO:** Variant calling information (Bcftools_ stats, SnpEff_ and SnpSift_ results, VCF file information) 
+    * Variant calling information (SnpEff_ and SnpSift_ results, VCF file information)
     * Consensus sequences
 * QA/QC of sample analysis results (basic PASS/FAIL based on minimum genome coverage and depth)
 * Nextflow workflow execution information
 * Prepend worksheets from other Excel documents into the report (e.g. cover page/sheet, sample sheet, lab results)
 * Add custom images into worksheets with custom names and descriptions (e.g. phylogenetic tree figure PNG)
 
+Roadmap
+-------
+
+* Bcftools_ variant calling stats sheet
+* Sample metadata table to merge with certain stats?
+* YAML config to info sheet?
+* coverage chart with controls?
 
 Credits
 -------
