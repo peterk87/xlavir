@@ -1,10 +1,10 @@
+import logging
 import os
 import re
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Iterable
-import logging
 
 import pandas as pd
 from pydantic import BaseModel
@@ -37,23 +37,56 @@ aa_codes = dict(
     TER='*',
 )
 
+# list of tuples: [0]: column id; [1]: report column id/name; [2]: column description for report cell comment
 variants_cols = [
-    ('sample', 'Sample'),
-    ('mutation', 'Mutation'),
-    ('POS', 'Position'),
-    ('REF', 'Reference Allele'),
-    ('ALT', 'Alternate Allele'),
-    ('REF_DP', 'Reference Allele Depth'),
-    ('ALT_DP', 'Alternate Alternate Depth'),
-    ('DP', 'Total Depth'),
-    ('ALT_FREQ', 'Alternate Allele Frequency'),
-    ('gene', 'Gene'),
-    ('impact', 'Variant Impact'),
-    ('effect', 'Variant Effect'),
-    ('aa', 'Amino Acid Change'),
-    ('aa_pos', 'Amino Acid Position'),
-    ('aa_len', 'Gene Amino Acid Length'),
-    ('CHROM', 'Reference Genome'),
+    ('sample', 'Sample', 'Sample name',),
+    ('CHROM', 'Reference Genome', 'Reference genome sequence ID/name'),
+    (
+        'mutation',
+        'Mutation',
+        'Mutation found in sample with format '
+        '"{reference allele}{reference position}{allele in sample}"'
+        ' with predicted amino acid change information in brackets with format '
+        '"{gene name}:{reference AA}{gene AA position}{AA change}"'
+    ),
+    ('POS', 'Position', '1-based nucleotide position in reference sequence'),
+    ('REF', 'Reference Allele', 'Nucleotide allele sequence found in reference sequence'),
+    ('ALT', 'Alternate Allele', 'Nucleotide allele sequence found in sample'),
+    (
+        'REF_DP',
+        'Reference Allele Depth',
+        'Read depth of coverage supporting reference allele at reference position'
+    ),
+    (
+        'ALT_DP',
+        'Alternate Allele Depth',
+        'Read depth of coverage supporting alternate allele at reference position',
+    ),
+    ('DP', 'Total Depth', 'Total depth of coverage at reference position',),
+    (
+        'ALT_FREQ',
+        'Alternate Allele Frequency',
+        'Observed frequency of alternate allele variant',
+    ),
+    ('gene', 'Gene', 'Gene name',),
+    (
+        'impact',
+        'Variant Impact',
+        'SnpEff estimation of putative impact or deleteriousness of variant '
+        '(see https://pcingola.github.io/SnpEff/se_inputoutput/#ann-field-vcf-output-files)'
+    ),
+    (
+        'effect',
+        'Variant Effect',
+        'Effect of variant annotated using Sequence Ontology terms, e.g.'
+        'for "missense_variant", see http://www.sequenceontology.org/browser/current_release/term/SO:0001583'
+        ' where the definition is "A sequence variant, that changes one or more bases, resulting in a '
+        'different amino acid sequence but where the length is preserved."'
+    ),
+    ('aa', 'Amino Acid Change', 'The change in the sample\'s gene amino acid sequence'
+                                ' relative to the reference sequence'),
+    ('aa_pos', 'Amino Acid Position', 'Position of amino acid change in the reference sequence gene'),
+    ('aa_len', 'Gene Amino Acid Length', 'Amino acid length of the reference sequence gene'),
 ]
 
 BCFTOOLS_STATS_GLOB_PATTERNS = [
@@ -87,7 +120,8 @@ VCF_GLOB_PATTERNS = [
 
 VCF_SAMPLE_NAME_CLEANUP = [
     re.compile(r'\.vcf(\.gz)?$'),
-    re.compile(r'\.AF0\.\d+'),
+    re.compile(r'\.AF0\.\d+(\.filt)?'),
+    re.compile(r'\.0\.\d+AF(\.filt)?'),
 ]
 
 SNPSIFT_GLOB_PATTERNS = [
@@ -97,7 +131,8 @@ SNPSIFT_GLOB_PATTERNS = [
 
 SNPSIFT_SAMPLE_NAME_CLEANUP = [
     re.compile(r'\.snpSift\.table\.txt$'),
-    re.compile(r'\.AF0\.\d+'),
+    re.compile(r'\.AF0\.\d+(\.filt)?'),
+    re.compile(r'\.0\.\d+AF(\.filt)?'),
 ]
 
 
@@ -226,7 +261,9 @@ def parse_ivar_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.Dat
     if df.empty:
         return None
     if not sample_name:
-        sample_name = df.columns[-1]
+        sample_name = df.columns[-1] if df.columns[-1] != 'SAMPLE' else None
+        if sample_name is None:
+            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
     pos_fmt_val = {}
     for row in df.itertuples():
         ks = row.FORMAT.split(':')
@@ -247,14 +284,48 @@ def merge_vcf_snpsift(df_vcf: Optional[pd.DataFrame],
         return None
     if df_vcf is None:
         snpsift_cols = set(df_snpsift.columns)
-        return df_snpsift.loc[:, [x for x, y in variants_cols if x in snpsift_cols]]
+        return df_snpsift.loc[:, [x for x, _, _ in variants_cols if x in snpsift_cols]]
     if df_snpsift is None:
         vcf_cols = set(df_vcf.columns)
-        return df_vcf.loc[:, [x for x, y in variants_cols if x in vcf_cols]]
+        return df_vcf.loc[:, [x for x, _, _ in variants_cols if x in vcf_cols]]
 
     df_merge = pd.merge(df_vcf, df_snpsift)
     merged_cols = set(df_merge.columns)
-    return df_merge.loc[:, [x for x, y in variants_cols if x in merged_cols]]
+    return df_merge.loc[:, [x for x, _, _ in variants_cols if x in merged_cols]]
+
+
+def parse_longshot_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.DataFrame]:
+    if df.empty:
+        return None
+    if not sample_name:
+        sample_name = df.columns[-1] if df.columns[-1] != 'SAMPLE' else None
+        if sample_name is None:
+            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
+    pos_info_val = {}
+    for row in df.itertuples():
+        infos = parse_vcf_info(row.INFO)
+        ac_ref, ac_alt = infos['AC']
+        infos['REF_DP'] = ac_ref
+        infos['ALT_DP'] = ac_alt
+        pos_info_val[row.POS] = infos
+    df_longshot_info = pd.DataFrame(pos_info_val).transpose()
+    df_longshot_info.index.name = 'POS'
+    df_longshot_info.reset_index(inplace=True)
+    df_merge = pd.merge(df, df_longshot_info, on='POS')
+    df_merge['sample'] = sample_name
+    df_merge['ALT_FREQ'] = df_merge.ALT_DP / df_merge.DP
+    cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
+    return df_merge.loc[:, cols_to_keep]
+
+
+def parse_vcf_info(s: str) -> dict:
+    out = {}
+    for x in s.split(';'):
+        if not x:
+            continue
+        key, val_str = x.split('=', maxsplit=1)
+        out[key] = try_parse_number(val_str)
+    return out
 
 
 def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
@@ -265,8 +336,14 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
     sample_dfvcf = {}
     for sample, vcf_path in sample_vcf.items():
         variant_caller, df_vcf = read_vcf(vcf_path)
-        if variant_caller == 'iVar':
+        if variant_caller.startswith(VariantCaller.iVar.value):
             df_parsed_ivar_vcf = parse_ivar_vcf(df_vcf, sample)
+            if df_parsed_ivar_vcf is not None:
+                sample_dfvcf[sample] = df_parsed_ivar_vcf
+            else:
+                logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
+        elif variant_caller.startswith(VariantCaller.Longshot.value):
+            df_parsed_ivar_vcf = parse_longshot_vcf(df_vcf, sample)
             if df_parsed_ivar_vcf is not None:
                 sample_dfvcf[sample] = df_parsed_ivar_vcf
             else:
@@ -306,13 +383,21 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
 def to_dataframe(dfs: Iterable[pd.DataFrame]) -> pd.DataFrame:
     df = pd.concat(list(dfs))
     df.sort_values(['sample', 'POS'], inplace=True)
-    return df.set_index('sample').rename(columns={x: y for x, y in variants_cols})
+    df.set_index('sample', inplace=True)
+    df.index.name = 'Sample'
+    return df.rename(columns={x: y for x, y, _ in variants_cols})
 
 
 def to_variant_pivot_table(df: pd.DataFrame) -> pd.DataFrame:
     df_vars = df.copy()
     df_vars.reset_index(inplace=True)
-    df_pivot = pd.pivot_table(df_vars, index='sample', columns='Mutation', values='Alternate Allele Frequency')
-    pivot_cols = list(zip(df_pivot.columns, df_pivot.columns.str.replace(r'[A-Z]+(\d+).*', r'\1').astype(int)))
+    df_pivot = pd.pivot_table(df_vars,
+                              index='Sample',
+                              columns='Mutation',
+                              values='Alternate Allele Frequency',
+                              aggfunc='first',
+                              fill_value=0.0)
+    pivot_cols = list(zip(df_pivot.columns,
+                          df_pivot.columns.str.replace(r'[A-Z]+(\d+).*', r'\1').astype(int)))
     pivot_cols.sort(key=itemgetter(1))
     return df_pivot[[x for x, y in pivot_cols]]

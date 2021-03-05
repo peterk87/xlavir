@@ -106,7 +106,10 @@ def list_get(xs: Optional[List], idx: int, default=None):
         return default
 
 
-def try_parse_number(s: str) -> Union[int, float, str]:
+def try_parse_number(s: str) -> Union[int, float, List[float], List[int], str]:
+    if ',' in s:
+        xs = s.split(',')
+        return [try_parse_number(x) for x in xs]
     try:
         return int(s)
     except ValueError:
