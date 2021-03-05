@@ -19,6 +19,7 @@ requirements = [
     'beautifulsoup4',
     'biopython',
     'openpyxl',
+    'imageio',
 ]
 
 setup_requirements = ['pytest-runner', ]

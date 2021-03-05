@@ -9,26 +9,75 @@ from xlavir.tools import mosdepth, samtools
 logger = logging.getLogger(__name__)
 
 
-def column_rename_tuple(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
+def columns(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
     return [
-        ('sample', 'Sample'),
-        ('qc_status', 'QC Status'),
-        ('qc_comment', 'QC Comment'),
-        ('genome_coverage', '% Genome Coverage'),
-        ('mean_coverage', 'Mean Coverage Depth'),
-        ('median_coverage', 'Median Coverage Depth'),
-        ('n_total_reads', '# Total Reads'),
-        ('n_mapped_reads', '# Mapped Reads'),
-        ('n_zero_coverage', '# 0X positions'),
-        ('n_low_coverage', f'# <{low_coverage_threshold}X positions'),
-        ('zero_coverage_coords', '0X Coverage Regions'),
-        ('low_coverage_coords', f'<{low_coverage_threshold}X Coverage Regions'),
+        ('sample', 'Sample', 'Sample name'),
+        (
+            'qc_status',
+            'QC Status',
+            'Quality control status, i.e. PASS or FAIL based on QC criteria '
+            'such as minimum mean read depth '
+            'or percent of reference genome covered by sequencing'
+        ),
+        (
+            'qc_comment',
+            'QC Comment',
+            'Comments on any potential quality issues, i.e. why a sample did not pass QC.'
+        ),
+        (
+            'genome_coverage',
+            '% Genome Coverage',
+            'Percent of reference genome sequence covered by sequencing'
+        ),
+        (
+            'mean_coverage',
+            'Mean Coverage Depth',
+            'Mean sequencing coverage depth across entire reference genome sequence.'
+        ),
+        (
+            'median_coverage',
+            'Median Coverage Depth',
+            'Median sequencing coverage depth across entire reference genome sequence.',
+        ),
+        (
+            'n_total_reads',
+            '# Total Reads',
+            'Total number of raw reads obtained from sequencing for this sample.'
+        ),
+        (
+            'n_mapped_reads',
+            '# Mapped Reads',
+            'Number of sequencing reads that mapped to the reference genome sequence.'
+        ),
+        (
+            'n_zero_coverage',
+            '# 0X positions',
+            'Number of reference sequence positions with no coverage depth (0X), i.e. '
+            'reference positions that did not have any reads spanning those positions.'
+        ),
+        (
+            'n_low_coverage',
+            f'# <{low_coverage_threshold}X positions',
+            f'Number of reference sequence positions with fewer than {low_coverage_threshold} reads'
+            f' spanning those positions.'
+        ),
+        (
+            'zero_coverage_coords',
+            '0X Coverage Regions',
+            'A list of reference sequence 1-based regions with no coverage (0X).'
+        ),
+        (
+            'low_coverage_coords',
+            f'<{low_coverage_threshold}X Coverage Regions',
+            f'A list of reference sequence 1-based regions with less than {low_coverage_threshold}'
+            f' coverage depth.'
+        ),
     ]
 
 
 def report_format(df: pd.DataFrame, low_coverage_threshold: int = 5) -> pd.DataFrame:
-    output_cols = column_rename_tuple(low_coverage_threshold)
-    df.rename(columns={x: y for x, y in output_cols}, inplace=True)
+    output_cols = columns(low_coverage_threshold)
+    df.rename(columns={x: y for x, y, _ in output_cols}, inplace=True)
     df.set_index('Sample', inplace=True)
     return df
 
@@ -62,8 +111,8 @@ def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDept
     df_stats.sort_values('sample', inplace=True)
 
     present_cols = set(df_stats.columns)
-    output_cols = column_rename_tuple(quality_reqs.low_coverage_threshold)
-    df_stats = df_stats.loc[:, [x for x, y in output_cols if x in present_cols]]
+    output_cols = columns(quality_reqs.low_coverage_threshold)
+    df_stats = df_stats.loc[:, [x for x, y, _ in output_cols if x in present_cols]]
 
     logger.debug(df_stats)
     return df_stats

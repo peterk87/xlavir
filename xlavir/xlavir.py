@@ -36,28 +36,34 @@ def run(input_dir: Path,
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.qc_stats.value,
                                    df=qc.report_format(df_stats,
                                                        low_coverage_threshold=quality_reqs.low_coverage_threshold),
-                                   pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep='NA')))
+                                   pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep='NA'),
+                                   header_comments={x: y for _, x, y in
+                                                    qc.columns(quality_reqs.low_coverage_threshold)}))
     df_pangolin = pangolin.get_info(basedir=input_dir,
                                     pangolin_lineage_csv=pangolin_lineage_csv)
     if df_pangolin is not None:
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.pangolin.value,
                                        df=df_pangolin,
-                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1))))
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                       header_comments={x: y for _, x, y in pangolin.pangolin_cols}))
     if sample_variants:
         df_variants = variants.to_dataframe(sample_variants.values())
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.variants.value,
                                        df=df_variants,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
-                                       include_header_width=False))
+                                       include_header_width=False,
+                                       header_comments={name: desc for _, name, desc in variants.variants_cols}))
         df_varmap = variants.to_variant_pivot_table(df_variants)
         max_index_length = df_varmap.index.str.len().max()
-        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmap.value,
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmat.value,
                                        df=df_varmap,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep=0.0),
                                        autofit=False,
-                                       column_widths=[max_index_length + 2] + [3 for _ in range(df_varmap.columns.size)]))
+                                       column_widths=[max_index_length + 2] + [3 for _ in
+                                                                               range(df_varmap.columns.size)]))
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.consensus.value,
                                    df=consensus.get_info(basedir=input_dir),
+                                   autofit=False,
                                    pd_to_excel_kwargs=dict(index=None, header=None)))
     if nf_exec_info:
         df_exec_info = to_dataframe(nf_exec_info)

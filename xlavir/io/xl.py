@@ -2,7 +2,7 @@
 import logging
 from copy import copy
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Set, Tuple
 
 import openpyxl
 import pandas as pd
@@ -31,6 +31,8 @@ def copy_spreadsheet(src_path: Path,
         dest_path (Path): Destination Excel spreadsheet path
         source_sheet_index (int): Source spreadsheet worksheet index to copy to destination spreadsheet
     """
+    from openpyxl.cell.cell import Cell
+
     src_book = openpyxl.load_workbook(src_path)
     dest_book = openpyxl.load_workbook(dest_path)
     sheet = src_book.worksheets[source_sheet_index]
@@ -41,9 +43,10 @@ def copy_spreadsheet(src_path: Path,
     new_sheet.merged_cells = copy(sheet.merged_cells)
     for k, v in sheet.row_dimensions.items():
         new_sheet.row_dimensions[k] = copy(v)
+    row: Tuple[Cell]
     for row in sheet.rows:
         for cell in row:
-            new_cell = new_sheet[cell.coordinate]
+            new_cell: Cell = new_sheet[cell.coordinate]
             new_cell.value = cell.value
             if cell.has_style:
                 new_cell.font = copy(cell.font)
@@ -52,6 +55,7 @@ def copy_spreadsheet(src_path: Path,
                 new_cell.number_format = copy(cell.number_format)
                 new_cell.protection = copy(cell.protection)
                 new_cell.alignment = copy(cell.alignment)
+            new_cell.comment = copy(cell.comment)
     dest_book.save(filename=dest_path)
 
 
@@ -59,6 +63,10 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                       output_xlsx: Path,
                       quality_reqs: QualityRequirements,
                       images_for_sheets: Optional[List[SheetImage]] = None):
+    """Write the output Excel XLSX file
+
+
+    """
     with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
         monospace = dict(font_name='Courier New')
         text_wrap = dict(text_wrap=True)
@@ -84,17 +92,33 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                                                  valign='bottom',
                                                  rotation=45,
                                                  font_name='Courier New'))
-        red_bg_fmt = book.add_format(dict(bg_color='red'))
+        fail_qc_fmt = book.add_format(dict(bg_color='FC9295',
+                                           font_name='Courier New',
+                                           bold=True))
+        pass_qc_fmt = book.add_format(dict(bg_color='c4edce',
+                                           font_name='Courier New',
+                                           bold=False))
         float_cols = {'Mean Coverage Depth'}
         perc_cols = {'% Genome Coverage'}
         perc_2dec_cols = {'Alternate Allele Frequency'}
 
+        images_added = False
+
         for esdf in dfs:
+            if images_for_sheets and esdf.sheet_name == SheetName.workflow_info.value:
+                add_images(images_for_sheets, book)
+                images_added = True
             esdf.df.to_excel(writer, sheet_name=esdf.sheet_name, **esdf.pd_to_excel_kwargs)
 
             sheet: Worksheet = book.get_worksheet_by_name(esdf.sheet_name)
 
             idx_and_cols = [esdf.df.index.name] + list(esdf.df.columns)
+
+            if esdf.header_comments:
+                for i, col_name in enumerate(idx_and_cols):
+                    if col_name in esdf.header_comments:
+                        sheet.write_comment(0, i, esdf.header_comments[col_name])
+
             if esdf.autofit:
                 for i, (width, col_name) in enumerate(zip(get_col_widths(esdf.df,
                                                                          index=True,
@@ -120,8 +144,17 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                 for i, idx in enumerate(esdf.df.index, 1):
                     sheet.set_row(i, get_row_heights(esdf.df, idx), monospace_wrap_fmt)
 
-            if esdf.sheet_name == SheetName.varmap.value:
-                sheet.set_row(0, max(len(x) for x in idx_and_cols)*5)
+            if esdf.sheet_name == SheetName.varmat.value:
+                sheet.write_comment(row=0,
+                                    col=0,
+                                    comment=f'This sheet contains a matrix of alternate allele variant observation'
+                                            f' frequency values for samples and variants. '
+                                            f'3-colour conditional formatting is applied to the variant '
+                                            f'frequency values where a major variant '
+                                            f'(e.g. alternate allele frequency >={quality_reqs.major_allele_freq}) '
+                                            f'is highlighted in green. Red indicates where the allele variant is not '
+                                            f'observed in the sample (e.g. alternate allele frequency equals 0.0).')
+                sheet.set_row(0, max(len(x) for x in idx_and_cols) * 5)
                 for i, col_name in enumerate(idx_and_cols):
                     if i == 0:
                         continue
@@ -147,19 +180,126 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                 sheet.conditional_format(1, 1, esdf.df.shape[0], 1, options=dict(type='cell',
                                                                                  value='"FAIL"',
                                                                                  criteria='equal to',
-                                                                                 format=red_bg_fmt))
-        if images_for_sheets:
+                                                                                 format=fail_qc_fmt))
+                sheet.conditional_format(1, 1, esdf.df.shape[0], 1, options=dict(type='cell',
+                                                                                 value='"PASS"',
+                                                                                 criteria='equal to',
+                                                                                 format=pass_qc_fmt))
+        if images_for_sheets and not images_added:
             add_images(images_for_sheets, book)
+
+    df_qc = get_qc_df(dfs)
+    failed_samples = set(df_qc[df_qc['QC Status'] == 'FAIL'].index)
+    highlight_qc_failed_samples(xlsx_path=output_xlsx, failed_samples=failed_samples)
+
+
+def get_qc_df(dfs: List[ExcelSheetDataFrame]) -> Optional[pd.DataFrame]:
+    for esdf in dfs:
+        if esdf.sheet_name == SheetName.qc_stats.value:
+            return esdf.df
 
 
 def add_images(images_for_sheets: List[SheetImage],
                book: Workbook):
-    text_wrap_fmt = book.add_format(dict(text_wrap=True))
-    text_wrap_fmt.set_align('vjustify')
+    """Add images and their descriptions to new sheets in a workbook"""
+    import imageio
+    text_wrap_fmt = book.add_format(dict(text_wrap=True, valign='justify'))
     for sheet_image in images_for_sheets:
         sheet = book.add_worksheet(sheet_image.sheet_name)
         sheet.set_column(0, 0, 100, text_wrap_fmt)
         sheet.write(0, 0, sheet_image.image_description, text_wrap_fmt)
-        sheet.insert_image(1, 0, sheet_image.image_path)
+        img = imageio.imread(sheet_image.image_path)
+        x_size, y_size, _ = img.shape
+        yx_ratio = y_size / x_size
+        logger.debug(f'Image "{sheet_image.image_path.name}", x={x_size}, y={y_size}, y/x={yx_ratio}')
+        sheet.insert_image(1, 0, sheet_image.image_path, options=dict(x_scale=1.0,
+                                                                      y_scale=yx_ratio,
+                                                                      object_position=3))
         sheet.hide_gridlines(2)
         sheet.hide_row_col_headers()
+
+
+def highlight_qc_failed_samples(xlsx_path: Path, failed_samples: Set[str]) -> None:
+    from openpyxl.comments import Comment
+    from openpyxl.styles import PatternFill, Font
+    from openpyxl.worksheet.worksheet import Worksheet
+    from openpyxl.worksheet.dimensions import ColumnDimension
+    logger.info(f'Loading workbook "{xlsx_path.name}" with openpyxl '
+                f'to highlight {len(failed_samples)} samples that have failed QC')
+    book = openpyxl.load_workbook(xlsx_path)
+    logger.info(f'Loaded "{xlsx_path.name}" using openpyxl. Sheets: {book.get_sheet_names()}')
+    sheet_names = [
+        SheetName.pangolin.value,
+        SheetName.variants.value,
+        SheetName.varmat,
+    ]
+    light_red = 'FC9295'
+    for sheet_name in sheet_names:
+        try:
+            sheet: Worksheet = book[sheet_name]
+            logger.info(f'Highlighting failed samples in sheet "{sheet_name}".')
+            for i, row in enumerate(sheet.rows):
+                if i == 0:
+                    continue
+                cell = row[0]
+                if cell.value in failed_samples:
+                    cell.comment = Comment(f'Warning: Sample "{cell.value}" has failed general NGS QC',
+                                           author='xlavir')
+                    cell.fill = PatternFill(fill_type='solid',
+                                            fgColor=light_red)
+        except KeyError:
+            pass
+    try:
+        sheet: Worksheet = book[SheetName.consensus.value]
+
+        sheet.column_dimensions['A'] = ColumnDimension(worksheet=sheet,
+                                                       index='A',
+                                                       width=100)
+
+        logger.info(f'Highlighting consensus sequences of failed '
+                    f'samples in sheet "{SheetName.consensus.value}".')
+        highlight_seq = False
+        sample_name = ''
+
+        dark_red = '260000'
+        for i, row in enumerate(sheet.rows):
+            cell = row[0]
+            if cell.value[0] == '>':
+                sample_name = cell.value[1:]
+                if sample_name in failed_samples:
+                    highlight_seq = True
+                    cell.comment = Comment(f'Warning: Sample "{sample_name}" has failed general NGS QC',
+                                           author='xlavir')
+                    cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
+                    font: Font = cell.font
+                    cell.font = Font(name='Courier New',
+                                     color=dark_red,
+                                     size=font.size,
+                                     family=font.family)
+                else:
+                    font: Font = cell.font
+                    cell.font = Font(name='Courier New',
+                                     color='000000',
+                                     size=font.size,
+                                     family=font.family)
+                    highlight_seq = False
+            elif cell.value and highlight_seq:
+                cell.comment = Comment(f'Warning: Sample "{sample_name}" has failed general NGS QC',
+                                       author='xlavir')
+
+                cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
+                font: Font = cell.font
+                cell.font = Font(name='Courier New',
+                                 color=dark_red,
+                                 size=font.size,
+                                 family=font.family)
+                highlight_seq = False
+            else:
+                font: Font = cell.font
+                cell.font = Font(name='Courier New',
+                                 color='000000',
+                                 size=font.size,
+                                 family=font.family)
+    except KeyError:
+        pass
+    book.save(xlsx_path)
