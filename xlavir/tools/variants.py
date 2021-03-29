@@ -313,6 +313,7 @@ def parse_longshot_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd
     df_longshot_info.reset_index(inplace=True)
     df_merge = pd.merge(df, df_longshot_info, on='POS')
     df_merge['sample'] = sample_name
+    df_merge = df_merge[df_merge.DP > 0]
     df_merge['ALT_FREQ'] = df_merge.ALT_DP / df_merge.DP
     cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
     return df_merge.loc[:, cols_to_keep]
