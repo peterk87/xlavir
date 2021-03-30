@@ -194,21 +194,26 @@ def parse_aa(gene: str,
 
     if effect == 'stop_lost':
         alt_aa = get_aa(alt_aa.replace('ext', ''))
-        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos}{alt_aa}[stop_lost])'
+        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos_str}{alt_aa}[stop_lost])'
     if effect == 'frameshift_variant':
-        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos}[FRAMESHIFT])'
+        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos_str}[FRAMESHIFT])'
     if effect == 'conservative_inframe_deletion':
-        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos}{alt_aa})'
+        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos_str}{alt_aa})'
+    if effect == 'disruptive_inframe_deletion':
+        return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos_str}{alt_aa}[disruptive_inframe_deletion])'
 
     alt_aa = get_aa(alt_aa)
-    return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos}{alt_aa})'
+    return f'{ref}{nt_pos}{alt}({gene}:{ref_aa}{aa_pos_str}{alt_aa})'
 
 
 def get_aa(s: str) -> str:
     out = ''
     for i in range(0, len(s), 3):
         aa = s[i: i + 3]
-        aa_code = aa_codes[aa.upper()]
+        try:
+            aa_code = aa_codes[aa.upper()]
+        except KeyError:
+            aa_code = aa
         out += aa_code
     return out
 
