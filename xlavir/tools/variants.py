@@ -241,7 +241,11 @@ def simplify_snpsift(df: pd.DataFrame, sample_name: str) -> Optional[pd.DataFram
                 continue
             else:
                 field_names.add(new_series_name)
-            new_series = df[c].str.split(',', n=1, expand=True)[0]
+            series = df[c]
+            if series.dtype == 'object' and isinstance(series.values[0], str):
+                new_series = series.str.split(',', n=1, expand=True)[0]
+            else:
+                new_series = series.astype('str')
             new_series.name = new_series_name
             series.append(new_series)
         else:
