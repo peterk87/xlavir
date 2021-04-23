@@ -2,7 +2,7 @@
 import logging
 from copy import copy
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import List, Optional, Set, Tuple, Dict, Union
 
 import openpyxl
 import pandas as pd
@@ -13,6 +13,7 @@ from xlavir.images import SheetImage
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.qc import QualityRequirements
 from xlavir.util import get_col_widths, get_row_heights
+from xlavir import __version__
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +99,9 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
         pass_qc_fmt = book.add_format(dict(bg_color='c4edce',
                                            font_name='Courier New',
                                            bold=False))
-        float_cols = {'Mean Coverage Depth'}
+        float_cols = {'Mean Coverage Depth', 'Mean Depth'}
         perc_cols = {'% Genome Coverage'}
-        perc_2dec_cols = {'Alternate Allele Frequency'}
+        perc_2dec_cols = {'Alternate Allele Frequency', 'Min AF', 'Max AF', 'Mean AF'}
 
         images_added = False
 
@@ -190,7 +191,7 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
 
     df_qc = get_qc_df(dfs)
     failed_samples = set(df_qc[df_qc['QC Status'] == 'FAIL'].index)
-    highlight_qc_failed_samples(xlsx_path=output_xlsx, failed_samples=failed_samples)
+    add_comments(xlsx_path=output_xlsx, failed_samples=failed_samples, esdfs=dfs)
 
 
 def get_qc_df(dfs: List[ExcelSheetDataFrame]) -> Optional[pd.DataFrame]:
@@ -219,7 +220,16 @@ def add_images(images_for_sheets: List[SheetImage],
         sheet.hide_row_col_headers()
 
 
-def highlight_qc_failed_samples(xlsx_path: Path, failed_samples: Set[str]) -> None:
+def get_excel_sheet_df(esds: List[ExcelSheetDataFrame],
+                       sheet_name: str) -> Optional[ExcelSheetDataFrame]:
+    for esd in esds:
+        if esd.sheet_name == sheet_name:
+            return esd
+
+
+def add_comments(xlsx_path: Path,
+                 failed_samples: Set[str],
+                 esdfs: List[ExcelSheetDataFrame]) -> None:
     from openpyxl.comments import Comment
     from openpyxl.styles import PatternFill, Font
     from openpyxl.worksheet.worksheet import Worksheet
@@ -228,10 +238,20 @@ def highlight_qc_failed_samples(xlsx_path: Path, failed_samples: Set[str]) -> No
                 f'to highlight {len(failed_samples)} samples that have failed QC')
     book = openpyxl.load_workbook(xlsx_path)
     logger.info(f'Loaded "{xlsx_path.name}" using openpyxl. Sheets: {book.get_sheet_names()}')
+    logger.info(f'Adjusting comment textbox sizes to fit text')
+    for sheetname in book.sheetnames:
+        for row in book[sheetname]:
+            for cell in row:
+                if cell.comment:
+                    comment: Comment = cell.comment
+                    comment.width = 300
+                    comment.height = max((100, len(comment.text) / 3 * 2))
+                    comment.author = f'xlavir version {__version__}'
+
     sheet_names = [
         SheetName.pangolin.value,
         SheetName.variants.value,
-        SheetName.varmat,
+        SheetName.varmat.value,
     ]
     light_red = 'FC9295'
     for sheet_name in sheet_names:
@@ -249,6 +269,40 @@ def highlight_qc_failed_samples(xlsx_path: Path, failed_samples: Set[str]) -> No
                                             fgColor=light_red)
         except KeyError:
             pass
+
+    esd_varmat = get_excel_sheet_df(esdfs, SheetName.varmat.value)
+    esd_variants = get_excel_sheet_df(esdfs, SheetName.variants.value)
+    if esd_varmat and esd_variants:
+        try:
+            sheet: Worksheet = book[SheetName.varmat.value]
+            logger.info(f'Adding additional comments to variant matrix values')
+            df_varmat = esd_varmat.df
+            variants: Dict[Tuple[str, str], Dict[str, Union[str, float, int]]] = esd_variants \
+                .df.reset_index() \
+                .set_index(['Sample', 'Mutation']) \
+                .to_dict(orient='index')
+
+            for i, row in enumerate(sheet.rows):
+                if i == 0:
+                    continue
+                sample = df_varmat.index.values[i - 1]
+                for j, cell in enumerate(row):
+                    if j == 0:
+                        continue
+                    mutation = df_varmat.columns.values[j - 1]
+                    variant = variants.get((sample, mutation), None)
+                    if variant:
+                        variant_str = '\n'.join(f'{k}: {v}' for k, v in variant.items())
+                        comment_text = f'Sample: {sample}\nMutation: {mutation}\n{variant_str}'
+                    else:
+                        comment_text = f'Mutation "{mutation}" not found in sample "{sample}"'
+                    cell.comment = Comment(comment_text,
+                                           author=f'xlavir version {__version__}',
+                                           width=300,
+                                           height=len(comment_text))
+        except KeyError:
+            pass
+
     try:
         sheet: Worksheet = book[SheetName.consensus.value]
 

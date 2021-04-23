@@ -56,6 +56,11 @@ def run(input_dir: Path,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
                                        include_header_width=False,
                                        header_comments={name: desc for _, name, desc in variants.variants_cols}))
+        df_varsum = variants.to_summary(df_variants)
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varsum.value,
+                                       df=df_varsum,
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                       header_comments={name: desc for _, name, desc in variants.variant_summary_cols}))
         df_varmap = variants.to_variant_pivot_table(df_variants)
         max_index_length = df_varmap.index.str.len().max()
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmat.value,
