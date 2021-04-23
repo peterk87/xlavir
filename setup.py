@@ -14,6 +14,7 @@ requirements = [
     'typer',
     'rich',
     'pandas',
+    'numpy>=1.20.0',
     'xlsxwriter',
     'pydantic',
     'beautifulsoup4',

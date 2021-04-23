@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Iterable
 
 import pandas as pd
+import numpy as np
 from pydantic import BaseModel
 
 from xlavir.util import try_parse_number, find_file_for_each_sample
@@ -87,6 +88,49 @@ variants_cols = [
                                 ' relative to the reference sequence'),
     ('aa_pos', 'Amino Acid Position', 'Position of amino acid change in the reference sequence gene'),
     ('aa_len', 'Gene Amino Acid Length', 'Amino acid length of the reference sequence gene'),
+]
+
+variant_summary_cols = [
+    (
+        'Mutation',
+        'Mutation',
+        'Mutation found in sample with format '
+        '"{reference allele}{reference position}{allele in sample}"'
+        ' with predicted amino acid change information in brackets with format '
+        '"{gene name}:{reference AA}{gene AA position}{AA change}"'
+    ),
+    ('n_samples', '# of Samples', 'Number of samples with the mutation.'),
+    ('samples', 'Samples', 'List of samples with mutation delimited by semicolon (";")'),
+    (
+        'min_depth',
+        'Min Depth',
+        'Minimum depth in all samples that the mutation is observed at.'
+    ),
+    (
+        'max_depth',
+        'Max Depth',
+        'Maximum depth in all samples that the mutation is observed at.'
+    ),
+    (
+        'mean_depth',
+        'Mean Depth',
+        'Mean/average depth that the mutation is observed at.'
+    ),
+    (
+        'min_af',
+        'Min AF',
+        'Minimum alternate allele frequency of mutation in all samples.'
+    ),
+    (
+        'max_af',
+        'Max AF',
+        'Maximum alternate allele frequency of mutation in all samples.'
+    ),
+    (
+        'mean_af',
+        'Mean AF',
+        'Mean/average alternate allele frequency of mutation in all samples.'
+    ),
 ]
 
 BCFTOOLS_STATS_GLOB_PATTERNS = [
@@ -411,3 +455,20 @@ def to_variant_pivot_table(df: pd.DataFrame) -> pd.DataFrame:
                           df_pivot.columns.str.replace(r'[A-Z]+(\d+).*', r'\1').astype(int)))
     pivot_cols.sort(key=itemgetter(1))
     return df_pivot[[x for x, y in pivot_cols]]
+
+
+def to_summary(df: pd.DataFrame) -> pd.DataFrame:
+    df_vars = df.copy()
+    df_vars.reset_index(inplace=True)
+
+    df_summary = df_vars.groupby('Mutation', sort=False).agg(
+        n_samples=pd.NamedAgg(column='Sample', aggfunc='size'),
+        samples=pd.NamedAgg(column='Sample', aggfunc=lambda x: '; '.join(x)),
+        min_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc='min'),
+        max_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc='max'),
+        mean_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc=lambda x: sum(x) / len(x)),
+        min_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc='min'),
+        max_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc='max'),
+        mean_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc=lambda x: sum(x) / len(x)),
+    )
+    return df_summary.rename(columns={x: y for x, y, _ in variant_summary_cols})

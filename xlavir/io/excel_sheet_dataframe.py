@@ -10,6 +10,7 @@ class SheetName(str, Enum):
     consensus = 'Consensus'
     pangolin = 'Pangolin Lineage'
     variants = 'Variants'
+    varsum = 'Variants Summary'
     varmat = 'Variant Matrix'
 
 
