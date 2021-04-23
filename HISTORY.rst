@@ -2,6 +2,38 @@
 History
 =======
 
+0.4.0 (2021-04-23)
+------------------
+
+* Adds "Variants Summary" sheet summarizing variant information across all samples
+* Adds comments to AF values in "Variant Matrix" sheet
+* Fixes width/height of cell comments to be based on length of comment text
+
+0.3.0 (2021-04-23)
+------------------
+
+* Adds support for adding Ct values from a Ct values table (tab-delimited, CSV, ODS, XLSX format) into an xlavir report.
+
+0.2.4 (2021-04-19)
+------------------
+
+* Fixes issue with SnpSift table file parsing and variable naming in variants.py (#4, #5)
+
+0.2.3 (2021-04-19)
+------------------
+
+* Fixes issue with SnpSift table file parsing. Adds check to see if SnpSift column is dtype object/str before using .str Series methods (#4)
+
+0.2.2 (2021-03-30)
+------------------
+
+* Fixes issue with SnpEff/SnpSift AA change parsing.
+
+0.2.1 (2021-03-29)
+------------------
+
+* Fix division by zero error due to variants with DP values of 0
+
 0.2.0 (2021-03-04)
 ------------------
 
