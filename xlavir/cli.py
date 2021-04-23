@@ -40,6 +40,7 @@ qc_presets = dict(
 def main(
     input_dir: Path,
     output: Path = typer.Argument('report.xlsx'),
+    ct_table: Path = typer.Option(None, help='Table of sample IDs and rtPCR Ct values'),
     pangolin_lineage_csv: Path = typer.Option(None, help='Pangolin lineage report CSV'),
     qc_preset: Optional[QCPresets] = typer.Option(None, help='Quality check preset'),
     low_coverage_threshold: Optional[int] = typer.Option(None, help='Low coverage threshold. '
@@ -87,6 +88,7 @@ def main(
 
     dfs = run(input_dir=input_dir,
               pangolin_lineage_csv=pangolin_lineage_csv,
+              ct_values_table=ct_table,
               quality_reqs=quality_reqs)
 
     write_xlsx_report(dfs=dfs,
