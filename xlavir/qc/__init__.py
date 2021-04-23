@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 def columns(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
     return [
         ('sample', 'Sample', 'Sample name'),
+        ('ct_value', 'Ct Value', 'Real-time PCR Ct value'),
         (
             'qc_status',
             'QC Status',
@@ -84,6 +85,7 @@ def report_format(df: pd.DataFrame, low_coverage_threshold: int = 5) -> pd.DataF
 
 def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDepthInfo],
                               sample_mapping_info: Dict[str, samtools.SamtoolsFlagstat],
+                              sample_cts: Dict[str, float],
                               quality_reqs: QualityRequirements):
     sample_names = set(sample_depth_info.keys()) | set(sample_mapping_info.keys())
     logger.info(f'N samples: {len(sample_names)}')
@@ -92,6 +94,7 @@ def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDept
         depth_info = sample_depth_info[sample].dict() if sample in sample_depth_info else {}
         mapping_info = sample_mapping_info[sample].dict() if sample in sample_mapping_info else {}
         merged_stats_info[sample] = {**depth_info, **mapping_info}
+        merged_stats_info[sample]['ct_value'] = sample_cts.get(sample, None)
     df_stats = pd.DataFrame(merged_stats_info.values())
     mask_pass_depth = (df_stats.median_coverage >= quality_reqs.min_median_depth)
     mask_pass_breadth = (df_stats.genome_coverage >= quality_reqs.min_genome_coverage)

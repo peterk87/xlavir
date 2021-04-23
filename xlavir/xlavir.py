@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional, List
 
 from xlavir import qc
+from xlavir.io import ct
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants
 from xlavir.tools.nextflow import exec_report
@@ -14,7 +15,8 @@ logger = logging.getLogger(__name__)
 
 def run(input_dir: Path,
         quality_reqs: Optional[qc.QualityRequirements],
-        pangolin_lineage_csv: Optional[Path] = None) -> List[ExcelSheetDataFrame]:
+        pangolin_lineage_csv: Optional[Path] = None,
+        ct_values_table: Optional[Path] = None) -> List[ExcelSheetDataFrame]:
     if quality_reqs:
         quality_reqs = qc.QualityRequirements()
     nf_exec_info = exec_report.get_info(input_dir)
@@ -26,12 +28,13 @@ def run(input_dir: Path,
     if logger.level == logging.DEBUG:
         for sample, info in sample_mapping_info.items():
             logger.debug(info.dict())
-
+    sample_cts = ct.read_ct_table(ct_values_table) if ct_values_table else {}
     sample_variants = variants.get_info(input_dir)
 
     dfs: List[ExcelSheetDataFrame] = []
     df_stats = qc.create_qc_stats_dataframe(sample_depth_info,
                                             sample_mapping_info,
+                                            sample_cts=sample_cts,
                                             quality_reqs=quality_reqs)
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.qc_stats.value,
                                    df=qc.report_format(df_stats,
