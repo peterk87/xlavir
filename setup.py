@@ -20,6 +20,7 @@ requirements = [
     'biopython',
     'openpyxl',
     'imageio',
+    'odfpy',
 ]
 
 setup_requirements = ['pytest-runner', ]
