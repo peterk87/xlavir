@@ -30,6 +30,7 @@ class MosdepthDepthInfo(BaseModel):
     genome_coverage: float
     mean_coverage: float
     median_coverage: int
+    ref_seq_length: int
 
 
 def read_mosdepth_bed(p: Path) -> pd.DataFrame:
@@ -58,8 +59,12 @@ def count_positions(df: pd.DataFrame) -> int:
 
 
 def get_genome_coverage(df: pd.DataFrame, low_coverage_threshold: int = 5) -> float:
-    genome_length = df.end_idx.max()
+    genome_length = get_genome_length(df)
     return 1.0 - (count_positions(df[df.depth < low_coverage_threshold]) / genome_length)
+
+
+def get_genome_length(df):
+    return df.end_idx.max()
 
 
 def depth_array(df: pd.DataFrame) -> np.ndarray:
@@ -87,6 +92,7 @@ def get_info(basedir: Path, low_coverage_threshold: int = 5) -> Dict[str, Mosdep
                                        low_coverage_coords=get_interval_coords_bed(df, low_coverage_threshold),
                                        genome_coverage=get_genome_coverage(df, low_coverage_threshold),
                                        mean_coverage=mean_cov,
-                                       median_coverage=median_cov)
+                                       median_coverage=median_cov,
+                                       ref_seq_length=get_genome_length(df))
         out[sample] = depth_info
     return out

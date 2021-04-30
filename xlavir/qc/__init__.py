@@ -63,6 +63,11 @@ def columns(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
             f' spanning those positions.'
         ),
         (
+            'ref_seq_length',
+            'Reference Sequence Length',
+            'Reference sequence length'
+        ),
+        (
             'zero_coverage_coords',
             '0X Coverage Regions',
             'A list of reference sequence 1-based regions with no coverage (0X).'
