@@ -2,6 +2,16 @@
 History
 =======
 
+0.4.1 (2021-05-14)
+------------------
+
+* Add reference sequence length to QC stats table. Get ref seq length from max mosdepth per base BED coverage value.
+* Add more conditional formatting
+* Fix ``execution_report.html`` finding
+* Fix version printing; add to help
+* Add epilog with usage info
+
+
 0.4.0 (2021-04-23)
 ------------------
 

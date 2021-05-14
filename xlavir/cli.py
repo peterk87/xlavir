@@ -3,10 +3,12 @@ import logging
 from enum import Enum
 from pathlib import Path
 from typing import Optional, List
+from sys import version_info
 
 import typer
 from rich.logging import RichHandler
 
+from xlavir import __version__
 from xlavir.images import get_images_for_sheets
 from xlavir.qc import QualityRequirements
 from xlavir.xlavir import run
@@ -36,7 +38,13 @@ qc_presets = dict(
 )
 
 
-@app.command()
+def version_callback(value: bool):
+    if value:
+        typer.echo(f"xlavir version {__version__}")
+        raise typer.Exit()
+
+
+@app.command(epilog=f'xlavir version {__version__}; Python {version_info.major}.{version_info.minor}.{version_info.micro}')
 def main(
     input_dir: Path,
     output: Path = typer.Argument('report.xlsx'),
@@ -50,17 +58,27 @@ def main(
     major_allele_freq: float = typer.Option(0.75, help='Major alternate allele fraction'),
     spreadsheet: Optional[List[Path]] = typer.Option(None, help='Copy Excel worksheet from workbook. '
                                                                 'Can specify multiple.'),
-    image: Optional[List[Path]] = typer.Option(None, help="Image path for image to add to sheet"),
+    image: Optional[List[Path]] = typer.Option(None, help="Image path for image to add to sheet. "
+                                                          "Can specify multiple."),
     image_title: Optional[List[str]] = typer.Option(None, help="Image sheet title"),
     image_description: Optional[List[str]] = typer.Option(None, help="Image description."),
     verbose: bool = typer.Option(default=False, help='Verbose logging'),
-    version: bool = typer.Option(default=False, help='Print version and exit'),
+    version: Optional[bool] = typer.Option(None, callback=version_callback,
+                                           help=f'Print "xlavir version {__version__}" and exit'),
 ):
-    """Console script for xlavir."""
-    if version:
-        from . import __version__
-        typer.echo(f'xlavir version {__version__}')
-        typer.Exit()
+    """xlavir - create an Excel report from a bioinformatics analysis output directory
+
+    Typical usage:
+
+    $ xlavir /path/to/viralrecon-or-virontus-results
+
+    Will output "report.xlsx" in current directory.
+
+    Specify report output filename:
+
+    $ xlavir /path/to/viralrecon-or-virontus-results xlavir-run-XXXX.xlsx
+
+    """
     from rich.traceback import install
     install(show_locals=True, width=120, word_wrap=True)
 

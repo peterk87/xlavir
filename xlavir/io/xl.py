@@ -177,21 +177,88 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                 sheet.hide_row_col_headers()
 
             if esdf.sheet_name == SheetName.qc_stats.value:
-                logger.info(f'Setting red background color for QC Status column of sheet "{esdf.sheet_name}"')
-                sheet.conditional_format(1, 1, esdf.df.shape[0], 1, options=dict(type='cell',
-                                                                                 value='"FAIL"',
-                                                                                 criteria='equal to',
-                                                                                 format=fail_qc_fmt))
-                sheet.conditional_format(1, 1, esdf.df.shape[0], 1, options=dict(type='cell',
-                                                                                 value='"PASS"',
-                                                                                 criteria='equal to',
-                                                                                 format=pass_qc_fmt))
+                columns = esdf.df.columns.tolist()
+                qc_status_column = 'QC Status'
+                column_idx = columns.index(qc_status_column) + 1
+                logger.info(f'Setting red background color for "{qc_status_column}" column (index={column_idx}) '
+                            f'of sheet "{esdf.sheet_name}"')
+                sheet.conditional_format(1, column_idx, esdf.df.shape[0], column_idx, options=dict(type='cell',
+                                                                                                   value='"FAIL"',
+                                                                                                   criteria='equal to',
+                                                                                                   format=fail_qc_fmt))
+                sheet.conditional_format(1, column_idx, esdf.df.shape[0], column_idx, options=dict(type='cell',
+                                                                                                   value='"PASS"',
+                                                                                                   criteria='equal to',
+                                                                                                   format=pass_qc_fmt))
+                cond_fmt_3color = dict(type='3_color_scale',
+                                       min_type='num',
+                                       mid_type='num',
+                                       max_type='num', )
+
+                add_cond_fmt(sheet,
+                             esdf.df,
+                             '% Genome Coverage',
+                             {**cond_fmt_3color, **dict(min_value=0.0,
+                                                        mid_value=quality_reqs.min_genome_coverage,
+                                                        max_value=1.0)})
+                for column in ['Median Coverage Depth', 'Mean Coverage Depth']:
+                    add_cond_fmt(sheet,
+                                 esdf.df,
+                                 column,
+                                 {**cond_fmt_3color, **dict(min_value=0,
+                                                            mid_value=quality_reqs.min_median_depth,
+                                                            max_type='max')}
+                                 )
+                ref_len = esdf.df['Reference Sequence Length'].values[0]
+                for column in esdf.df.columns[esdf.df.columns.str.contains('X positions')]:
+                    add_cond_fmt(sheet,
+                                 esdf.df,
+                                 column,
+                                 {
+                                     **cond_fmt_3color,
+                                     **dict(min_color='6eb758',
+                                            max_color='930e11',
+                                            mid_color='f73639',
+                                            min_value=0,
+                                            mid_value=ref_len * 0.05,
+                                            max_value=ref_len)}
+                                 )
+                for column in esdf.df.columns[esdf.df.columns.str.contains('Reads')]:
+                    add_cond_fmt(sheet,
+                                 esdf.df,
+                                 column,
+                                 {
+                                     **cond_fmt_3color,
+                                     **dict(min_color='930e11',
+                                            mid_color='f4cf46',
+                                            max_color='6eb758',
+                                            min_value=0,
+                                            mid_value=1000,
+                                            max_type='max')}
+                                 )
+
         if images_for_sheets and not images_added:
             add_images(images_for_sheets, book)
 
     df_qc = get_qc_df(dfs)
     failed_samples = set(df_qc[df_qc['QC Status'] == 'FAIL'].index)
     add_comments(xlsx_path=output_xlsx, failed_samples=failed_samples, esdfs=dfs)
+
+
+def add_cond_fmt(sheet: Worksheet,
+                 df: pd.DataFrame,
+                 column: str,
+                 options: dict):
+    columns = df.columns.tolist()
+    column_idx = columns.index(column) + 1
+    logger.info(f'Applying conditional formatting to column "{column}" (index={column_idx}) of '
+                f'sheet "{sheet.name}"')
+
+    sheet.conditional_format(first_row=1,
+                             first_col=column_idx,
+                             last_row=df.shape[0],
+                             last_col=column_idx,
+                             options=options)
 
 
 def get_qc_df(dfs: List[ExcelSheetDataFrame]) -> Optional[pd.DataFrame]:

@@ -24,7 +24,7 @@ class NextflowWorkflowExecInfo(BaseModel):
 
 
 def find_exec_report(basedir: Path) -> Path:
-    for p in basedir.rglob('execution_report.html'):
+    for p in basedir.rglob('execution_report*.html'):
         return p
 
 
