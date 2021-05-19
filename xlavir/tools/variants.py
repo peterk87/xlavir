@@ -170,11 +170,14 @@ VCF_SAMPLE_NAME_CLEANUP = [
 
 SNPSIFT_GLOB_PATTERNS = [
     '**/ivar/**/*.snpSift.table.txt',
+    '**/ivar/**/*.snpsift.txt',
     '**/*.snpSift.table.txt',
+    '**/*.snpsift.txt',
 ]
 
 SNPSIFT_SAMPLE_NAME_CLEANUP = [
-    re.compile(r'\.snpSift\.table\.txt$'),
+    re.compile(r'\.snp[sS]ift\.table\.txt$'),
+    re.compile(r'\.snp[sS]ift\.txt$'),
     re.compile(r'\.AF0\.\d+(\.filt)?'),
     re.compile(r'\.0\.\d+AF(\.filt)?'),
 ]
@@ -409,6 +412,8 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
                                                glob_patterns=SNPSIFT_GLOB_PATTERNS,
                                                sample_name_cleanup=SNPSIFT_SAMPLE_NAME_CLEANUP,
                                                single_entry_selector_func=snpsift_selector)
+    if sample_snpsift:
+        logger.warning(f'No SnpSift tables found in "{basedir}" using glob patterns "{SNPSIFT_GLOB_PATTERNS}"')
     sample_dfsnpsift = {}
     for sample, snpsift_path in sample_snpsift.items():
         df_snpsift = simplify_snpsift(pd.read_table(snpsift_path), sample)

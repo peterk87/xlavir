@@ -36,6 +36,7 @@ def extract_sample_name(filename: str,
     if not remove:
         remove = [
             '.trim',
+            '.ivar_trim',
             '.mkD',
             '.sorted',
             '.bam',
