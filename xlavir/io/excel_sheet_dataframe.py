@@ -12,6 +12,8 @@ class SheetName(str, Enum):
     variants = 'Variants'
     varsum = 'Variants Summary'
     varmat = 'Variant Matrix'
+    nextclade = 'Nextclade'
+    xlavir_info = 'xlavir info'
 
 
 class ExcelSheetDataFrame:

@@ -6,7 +6,7 @@ from typing import Optional, List
 from xlavir import qc
 from xlavir.io import ct
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
-from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants
+from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants, nextclade
 from xlavir.tools.nextflow import exec_report
 from xlavir.tools.nextflow.exec_report import to_dataframe
 
@@ -49,6 +49,12 @@ def run(input_dir: Path,
                                        df=df_pangolin,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
                                        header_comments={x: y for _, x, y in pangolin.pangolin_cols}))
+    sample_nextclade = nextclade.get_info(basedir=input_dir)
+    if sample_nextclade:
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.nextclade.value,
+                                       df=nextclade.to_dataframe(sample_nextclade),
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                       header_comments={x: y for _, x, y in nextclade.nextclade_cols}))
     if sample_variants:
         df_variants = variants.to_dataframe(sample_variants.values())
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.variants.value,
@@ -61,7 +67,8 @@ def run(input_dir: Path,
             dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varsum.value,
                                            df=df_varsum,
                                            pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
-                                           header_comments={name: desc for _, name, desc in variants.variant_summary_cols}))
+                                           header_comments={name: desc for _, name, desc in
+                                                            variants.variant_summary_cols + variants.variants_cols}))
             df_varmap = variants.to_variant_pivot_table(df_variants)
             max_index_length = df_varmap.index.str.len().max()
             dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmat.value,
