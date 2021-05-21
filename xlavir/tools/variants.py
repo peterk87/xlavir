@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Iterable
 
 import pandas as pd
-import numpy as np
 from pydantic import BaseModel
 
 from xlavir.util import try_parse_number, find_file_for_each_sample
@@ -170,11 +169,14 @@ VCF_SAMPLE_NAME_CLEANUP = [
 
 SNPSIFT_GLOB_PATTERNS = [
     '**/ivar/**/*.snpSift.table.txt',
+    '**/ivar/**/*.snpsift.txt',
     '**/*.snpSift.table.txt',
+    '**/*.snpsift.txt',
 ]
 
 SNPSIFT_SAMPLE_NAME_CLEANUP = [
-    re.compile(r'\.snpSift\.table\.txt$'),
+    re.compile(r'\.snp[sS]ift\.table\.txt$'),
+    re.compile(r'\.snp[sS]ift\.txt$'),
     re.compile(r'\.AF0\.\d+(\.filt)?'),
     re.compile(r'\.0\.\d+AF(\.filt)?'),
 ]
@@ -230,9 +232,16 @@ def parse_aa(gene: str,
              aa_pos: int,
              snpeff_aa: str,
              effect: str) -> str:
-    m = re.match(r'p\.([a-zA-Z]+)(\d+)([a-zA-Z]+)', snpeff_aa)
-    if snpeff_aa == '.' or m is None:
+    if snpeff_aa == '.':
         return f'{ref}{nt_pos}{alt}'
+    m = re.match(r'p\.([a-zA-Z]+)(\d+)([a-zA-Z]+)', snpeff_aa)
+    if m is None and snpeff_aa.startswith('p.'):
+        aa_str = snpeff_aa[2:].upper()
+        for aa3, aa1 in aa_codes.items():
+            aa_str = aa_str.replace(aa3, aa1)
+        if aa_str.endswith('DEL'):
+            aa_str = aa_str.replace('DEL', 'del')
+        return f'{ref}{nt_pos}{alt}({gene}:{aa_str})'
     ref_aa, aa_pos_str, alt_aa = m.groups()
     ref_aa = get_aa(ref_aa)
 
@@ -409,6 +418,8 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
                                                glob_patterns=SNPSIFT_GLOB_PATTERNS,
                                                sample_name_cleanup=SNPSIFT_SAMPLE_NAME_CLEANUP,
                                                single_entry_selector_func=snpsift_selector)
+    if sample_snpsift:
+        logger.warning(f'No SnpSift tables found in "{basedir}" using glob patterns "{SNPSIFT_GLOB_PATTERNS}"')
     sample_dfsnpsift = {}
     for sample, snpsift_path in sample_snpsift.items():
         df_snpsift = simplify_snpsift(pd.read_table(snpsift_path), sample)
@@ -462,13 +473,17 @@ def to_summary(df: pd.DataFrame) -> pd.DataFrame:
     df_vars.reset_index(inplace=True)
 
     df_summary = df_vars.groupby('Mutation', sort=False).agg(
-        n_samples=pd.NamedAgg(column='Sample', aggfunc='size'),
-        samples=pd.NamedAgg(column='Sample', aggfunc=lambda x: '; '.join(x)),
-        min_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc='min'),
-        max_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc='max'),
-        mean_depth=pd.NamedAgg(column='Alternate Allele Depth', aggfunc=lambda x: sum(x) / len(x)),
-        min_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc='min'),
-        max_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc='max'),
-        mean_af=pd.NamedAgg(column='Alternate Allele Frequency', aggfunc=lambda x: sum(x) / len(x)),
+        n_samples=('Sample', 'size'),
+        samples=('Sample', lambda x: '; '.join(x)),
+        gene=('Gene', 'first'),
+        effect=('Variant Effect', 'first'),
+        impact=('Variant Impact', 'first'),
+        aa=('Amino Acid Change', 'first'),
+        min_depth=('Alternate Allele Depth', 'min'),
+        max_depth=('Alternate Allele Depth', 'max'),
+        mean_depth=('Alternate Allele Depth', lambda x: sum(x) / len(x)),
+        min_af=('Alternate Allele Frequency', 'min'),
+        max_af=('Alternate Allele Frequency', 'max'),
+        mean_af=('Alternate Allele Frequency', lambda x: sum(x) / len(x)),
     )
-    return df_summary.rename(columns={x: y for x, y, _ in variant_summary_cols})
+    return df_summary.rename(columns={x: y for x, y, _ in (variant_summary_cols + variants_cols)})

@@ -6,7 +6,7 @@ from typing import Optional, List
 from xlavir import qc
 from xlavir.io import ct
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
-from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants
+from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants, nextclade
 from xlavir.tools.nextflow import exec_report
 from xlavir.tools.nextflow.exec_report import to_dataframe
 
@@ -49,6 +49,12 @@ def run(input_dir: Path,
                                        df=df_pangolin,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
                                        header_comments={x: y for _, x, y in pangolin.pangolin_cols}))
+    sample_nextclade = nextclade.get_info(basedir=input_dir)
+    if sample_nextclade:
+        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.nextclade.value,
+                                       df=nextclade.to_dataframe(sample_nextclade),
+                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                       header_comments={x: y for _, x, y in nextclade.nextclade_cols}))
     if sample_variants:
         df_variants = variants.to_dataframe(sample_variants.values())
         dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.variants.value,
@@ -56,19 +62,25 @@ def run(input_dir: Path,
                                        pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
                                        include_header_width=False,
                                        header_comments={name: desc for _, name, desc in variants.variants_cols}))
-        df_varsum = variants.to_summary(df_variants)
-        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varsum.value,
-                                       df=df_varsum,
-                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
-                                       header_comments={name: desc for _, name, desc in variants.variant_summary_cols}))
-        df_varmap = variants.to_variant_pivot_table(df_variants)
-        max_index_length = df_varmap.index.str.len().max()
-        dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmat.value,
-                                       df=df_varmap,
-                                       pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep=0.0),
-                                       autofit=False,
-                                       column_widths=[max_index_length + 2] + [3 for _ in
-                                                                               range(df_varmap.columns.size)]))
+        if 'Mutation' in df_variants.columns:
+            df_varsum = variants.to_summary(df_variants)
+            dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varsum.value,
+                                           df=df_varsum,
+                                           pd_to_excel_kwargs=dict(freeze_panes=(1, 1)),
+                                           header_comments={name: desc for _, name, desc in
+                                                            variants.variant_summary_cols + variants.variants_cols}))
+            df_varmap = variants.to_variant_pivot_table(df_variants)
+            max_index_length = df_varmap.index.str.len().max()
+            dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.varmat.value,
+                                           df=df_varmap,
+                                           pd_to_excel_kwargs=dict(freeze_panes=(1, 1), na_rep=0.0),
+                                           autofit=False,
+                                           column_widths=[max_index_length + 2] + [3 for _ in
+                                                                                   range(df_varmap.columns.size)]))
+        else:
+            logger.warning(f'No column "Mutation" found in variant info dataframe. SnpEff/SnpSift table may not have '
+                           f'been found or parsed correctly.')
+
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.consensus.value,
                                    df=consensus.get_info(basedir=input_dir),
                                    autofit=False,

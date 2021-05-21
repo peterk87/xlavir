@@ -7,9 +7,11 @@ from sys import version_info
 
 import typer
 from rich.logging import RichHandler
+import pandas as pd
 
 from xlavir import __version__
 from xlavir.images import get_images_for_sheets
+from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.qc import QualityRequirements
 from xlavir.xlavir import run
 from xlavir.io.xl import write_xlsx_report
@@ -44,27 +46,35 @@ def version_callback(value: bool):
         raise typer.Exit()
 
 
-@app.command(epilog=f'xlavir version {__version__}; Python {version_info.major}.{version_info.minor}.{version_info.micro}')
+def check_dir_exists_callback(path: Path) -> Path:
+    if not (path.exists() or path.is_dir()):
+        raise typer.BadParameter(f'An existing Nextflow workflow results directory must be specified! '
+                                 f'"{path}" does not exist or is not a directory!')
+    return path
+
+
+@app.command(
+    epilog=f'xlavir version {__version__}; Python {version_info.major}.{version_info.minor}.{version_info.micro}')
 def main(
-    input_dir: Path,
-    output: Path = typer.Argument('report.xlsx'),
-    ct_table: Path = typer.Option(None, help='Table of sample IDs and rtPCR Ct values'),
-    pangolin_lineage_csv: Path = typer.Option(None, help='Pangolin lineage report CSV'),
-    qc_preset: Optional[QCPresets] = typer.Option(None, help='Quality check preset'),
-    low_coverage_threshold: Optional[int] = typer.Option(None, help='Low coverage threshold. '
-                                                                    'Used for calculation of % genome coverage.'),
-    min_genome_coverage: Optional[float] = typer.Option(None, help='Min genome coverage. e.g. 0.95 == 95%'),
-    min_median_depth: Optional[int] = typer.Option(None, help='Min median coverage depth'),
-    major_allele_freq: float = typer.Option(0.75, help='Major alternate allele fraction'),
-    spreadsheet: Optional[List[Path]] = typer.Option(None, help='Copy Excel worksheet from workbook. '
-                                                                'Can specify multiple.'),
-    image: Optional[List[Path]] = typer.Option(None, help="Image path for image to add to sheet. "
-                                                          "Can specify multiple."),
-    image_title: Optional[List[str]] = typer.Option(None, help="Image sheet title"),
-    image_description: Optional[List[str]] = typer.Option(None, help="Image description."),
-    verbose: bool = typer.Option(default=False, help='Verbose logging'),
-    version: Optional[bool] = typer.Option(None, callback=version_callback,
-                                           help=f'Print "xlavir version {__version__}" and exit'),
+        input_dir: Path = typer.Argument(..., callback=check_dir_exists_callback),
+        output: Path = typer.Argument('xlavir-report.xlsx'),
+        ct_table: Path = typer.Option(None, help='Table of sample IDs and rtPCR Ct values'),
+        pangolin_lineage_csv: Path = typer.Option(None, help='Pangolin lineage report CSV'),
+        qc_preset: Optional[QCPresets] = typer.Option(None, help='Quality check preset'),
+        low_coverage_threshold: Optional[int] = typer.Option(None, help='Low coverage threshold. '
+                                                                        'Used for calculation of % genome coverage.'),
+        min_genome_coverage: Optional[float] = typer.Option(None, help='Min genome coverage. e.g. 0.95 == 95%'),
+        min_median_depth: Optional[int] = typer.Option(None, help='Min median coverage depth'),
+        major_allele_freq: float = typer.Option(0.75, help='Major alternate allele fraction'),
+        spreadsheet: Optional[List[Path]] = typer.Option(None, help='Copy Excel worksheet from workbook. '
+                                                                    'Can specify multiple.'),
+        image: Optional[List[Path]] = typer.Option(None, help="Image path for image to add to sheet. "
+                                                              "Can specify multiple."),
+        image_title: Optional[List[str]] = typer.Option(None, help="Image sheet title"),
+        image_description: Optional[List[str]] = typer.Option(None, help="Image description."),
+        verbose: bool = typer.Option(default=False, help='Verbose logging'),
+        version: Optional[bool] = typer.Option(None, callback=version_callback,
+                                               help=f'Print "xlavir version {__version__}" and exit'),
 ):
     """xlavir - create an Excel report from a bioinformatics analysis output directory
 
@@ -108,7 +118,15 @@ def main(
               pangolin_lineage_csv=pangolin_lineage_csv,
               ct_values_table=ct_table,
               quality_reqs=quality_reqs)
-
+    dfs.append(ExcelSheetDataFrame(
+        sheet_name=SheetName.xlavir_info.value,
+        df=pd.DataFrame([
+            ('xlavir version', __version__),
+            ('Python version', f'{version_info.major}.{version_info.minor}.{version_info.micro}'),
+            ('Input directory', input_dir.absolute()),
+            ('QC Requirements', quality_reqs),
+        ], columns=['Attribute', 'Value']).set_index('Attribute')
+    ))
     write_xlsx_report(dfs=dfs,
                       output_xlsx=output,
                       quality_reqs=quality_reqs,

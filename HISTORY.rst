@@ -2,6 +2,16 @@
 History
 =======
 
+0.4.2 (2021-05-21)
+------------------
+
+* Add support for nf-core/viralrecon version 2.0 (requires Mosdepth ``bed.gz`` files be output; needs custom ``modules.config`` like `this one <https://gist.github.com/peterk87/495621349c1161d12047c1c8f97935af>`_)
+* `Nextclade CLI <https://github.com/nextstrain/nextclade/blob/master/packages/cli/README.md>`_ per sample results parsed into sheet showing useful info like Nextstrain clade, # of mutations, # of PCR primer changes
+* Added check that input directory exists and is a directory
+* Added sheet with xlavir info
+* Added Gene, Variant Effect, Variant Impact, Amino Acid Change to Variant Summary table
+
+
 0.4.1 (2021-05-14)
 ------------------
 
