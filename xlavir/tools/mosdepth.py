@@ -51,7 +51,7 @@ def get_interval_coords_bed(df: pd.DataFrame, threshold: int = 0) -> str:
                 coords.append([x, y - 1])
         else:
             coords.append([x, y - 1])
-    return '; '.join([f'{xs[0] + 1}-{xs[-1] + 1}' if xs[0] != xs[-1] else f'{xs[0]}' for xs in coords])
+    return '; '.join([f'{xs[0] + 1}-{xs[-1] + 1}' if xs[0] != xs[-1] else f'{xs[0] + 1}' for xs in coords])
 
 
 def count_positions(df: pd.DataFrame) -> int:
