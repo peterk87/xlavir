@@ -60,6 +60,6 @@ setup(
     test_suite='tests',
     tests_require=test_requirements,
     url='https://github.com/peterk87/xlavir',
-    version='0.4.3',
+    version='0.5.0',
     zip_safe=False,
 )

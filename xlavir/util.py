@@ -35,6 +35,8 @@ def extract_sample_name(filename: str,
                         remove: List[Union[str, re.Pattern]] = None) -> str:
     if not remove:
         remove = [
+            '.pass',
+            '.mapped',
             '.trim',
             '.ivar_trim',
             '.mkD',

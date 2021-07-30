@@ -154,15 +154,17 @@ class VariantStats(BaseModel):
 class VariantCaller(Enum):
     iVar = 'iVar'
     Longshot = 'Longshot'
+    Nanopolish = 'nanopolish'
 
 
 VCF_GLOB_PATTERNS = [
+    '**/nanopolish/*.pass.vcf.gz',
     '**/ivar/*.vcf.gz',
     '**/*.vcf',
 ]
 
 VCF_SAMPLE_NAME_CLEANUP = [
-    re.compile(r'\.vcf(\.gz)?$'),
+    re.compile(r'(\.pass)?\.vcf(\.gz)?$'),
     re.compile(r'\.AF0\.\d+(\.filt)?'),
     re.compile(r'\.0\.\d+AF(\.filt)?'),
 ]
@@ -215,6 +217,8 @@ def read_vcf(vcf_file: Path) -> Tuple[str, pd.DataFrame]:
         for line in fh:
             if line.startswith('##source='):
                 variant_caller = line.strip().replace('##source=', '')
+            if line.startswith('##nanopolish'):
+                variant_caller = 'nanopolish'
             if line.startswith('#CHROM'):
                 vcf_cols = line[1:].strip().split('\t')
                 break
@@ -222,6 +226,7 @@ def read_vcf(vcf_file: Path) -> Tuple[str, pd.DataFrame]:
                            comment='#',
                            header=None,
                            names=vcf_cols)
+        df = df[~df.duplicated(['CHROM', 'POS', 'ID', 'REF', 'ALT', 'FILTER'], keep='first')]
     return variant_caller, df
 
 
@@ -274,6 +279,7 @@ def get_aa(s: str) -> str:
 def simplify_snpsift(df: pd.DataFrame, sample_name: str) -> Optional[pd.DataFrame]:
     if df.empty:
         return None
+    df = df[~df.duplicated(keep='first')]
     field_names = set()
     series = []
     for c in df.columns:
@@ -381,6 +387,36 @@ def parse_longshot_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd
     return df_merge.loc[:, cols_to_keep]
 
 
+def parse_nanopolish_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.DataFrame]:
+    if df.empty:
+        return None
+    if not sample_name:
+        sample_name = df.columns[-1] if df.columns[-1] != 'sample' else None
+        if sample_name is None:
+            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
+    pos_info_val = {}
+    for row in df.itertuples():
+        infos = parse_vcf_info(row.INFO)
+        fwd_ref, rev_ref, fwd_alt, rev_alt = infos['StrandSupport']
+        allele_count = infos['AlleleCount']
+        if allele_count > 1:
+            raise NotImplementedError(f'Handling of allele count of {allele_count} is not supported. '
+                                      f'Only allele counts of 1 are supported.')
+        infos['DP'] = fwd_ref+fwd_alt+rev_ref+rev_alt
+        infos['REF_DP'] = fwd_ref + rev_ref
+        infos['ALT_DP'] = fwd_alt + rev_alt
+        pos_info_val[row.POS] = infos
+    df_nanopolish_info = pd.DataFrame(pos_info_val).transpose()
+    df_nanopolish_info.index.name = 'POS'
+    df_nanopolish_info.reset_index(inplace=True)
+    df_merge = pd.merge(df, df_nanopolish_info, on='POS')
+    df_merge['sample'] = sample_name
+    df_merge = df_merge[df_merge.DP > 0]
+    df_merge['ALT_FREQ'] = df_merge.ALT_DP / df_merge.DP
+    cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
+    return df_merge.loc[:, cols_to_keep]
+
+
 def parse_vcf_info(s: str) -> dict:
     out = {}
     for x in s.split(';'):
@@ -406,9 +442,15 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
         elif variant_caller.startswith(VariantCaller.Longshot.value):
-            df_parsed_ivar_vcf = parse_longshot_vcf(df_vcf, sample)
-            if df_parsed_ivar_vcf is not None:
-                sample_dfvcf[sample] = df_parsed_ivar_vcf
+            df_longshot_vcf = parse_longshot_vcf(df_vcf, sample)
+            if df_longshot_vcf is not None:
+                sample_dfvcf[sample] = df_longshot_vcf
+            else:
+                logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
+        elif variant_caller.startswith(VariantCaller.Nanopolish.value):
+            df_nanopolish_vcf = parse_nanopolish_vcf(df_vcf, sample)
+            if df_nanopolish_vcf is not None:
+                sample_dfvcf[sample] = df_nanopolish_vcf
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
         else:
