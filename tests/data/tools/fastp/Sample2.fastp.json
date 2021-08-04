@@ -1,0 +1,8 @@
+{
+	"summary": {
+		"before_filtering": {
+			"total_reads":523300
+		}
+	},
+	"command": "fastp"
+}
