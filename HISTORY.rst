@@ -6,7 +6,7 @@ History
 ------------------
 
 * Fixed issue (`#12 <https://github.com/peterk87/xlavir/issues/12>`_) where iVar ref allele depth corresponds to depth of base before deletion. For indels, ref allele depth is taken from the total depth minus the alt allele depth.
-* Fixed issue (`#13 <https://github.com/peterk87/xlavir/issues/13>`_) where the total number of reads from ``samtools flagstat`` may not be the true number of reads. The unmapped reads may be excluded from the BAM file so the ``samtools flagstat`` total number of reads may be equal to the number of mapped reads. There is now a search for fastp JSON files to get the true total number of reads.
+* Fixed issue (`#14 <https://github.com/peterk87/xlavir/issues/14>`_) where the total number of reads from ``samtools flagstat`` may not be the true number of reads. The unmapped reads may be excluded from the BAM file so the ``samtools flagstat`` total number of reads may be equal to the number of mapped reads. There is now a search for fastp JSON files to get the true total number of reads.
 
 0.5.0 (2021-07-30)
 ------------------
