@@ -2,6 +2,11 @@
 History
 =======
 
+0.5.1 (2021-08-04)
+------------------
+
+* Fixed issue (`#12 <https://github.com/peterk87/xlavir/issues/12>`_) where iVar ref allele depth corresponds to depth of base before deletion. For indels, ref allele depth is taken from the total depth minus the alt allele depth.
+
 0.5.0 (2021-07-30)
 ------------------
 

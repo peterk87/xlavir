@@ -4,7 +4,7 @@ import re
 from enum import Enum
 from operator import itemgetter
 from pathlib import Path
-from typing import Dict, Tuple, List, Optional, Iterable
+from typing import Dict, Tuple, List, Optional, Iterable, Union
 
 import pandas as pd
 from pydantic import BaseModel
@@ -334,15 +334,34 @@ def parse_ivar_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.Dat
             raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
     pos_fmt_val = {}
     for row in df.itertuples():
+        # An iVar VCF has the DP, total depth, in the INFO field, you cannot sum the alt and ref depths since the ref
+        # depth only applies to the first base in the ref allele rather than over the entire allele so the depth can be
+        # misleading for deletions
+        # See iVar issue: https://github.com/andersen-lab/ivar/issues/86
+        infos = parse_vcf_info(row.INFO)
+        total_dp = infos['DP']
         ks = row.FORMAT.split(':')
         vs = row[-1].split(':')
-        pos_fmt_val[row.POS] = {k: try_parse_number(v) for k, v in zip(ks, vs)}
+        record: Dict[str, Union[float, int, str]] = {k: try_parse_number(v) for k, v in zip(ks, vs)}
+        ref_dp = record['REF_DP']
+        alt_dp = record['ALT_DP']
+        # if the sum of the ref and alt dp does not equal the total dp reported by iVar then recalculate the ref dp
+        # since it is likely only reporting the ref dp for the first base of a longer deletion. SNPs should be fine.
+        sum_ref_alt_dp = ref_dp + alt_dp
+        if sum_ref_alt_dp != total_dp:
+            record['REF_DP'] = total_dp - alt_dp
+            logger.warning(
+                f'iVar VCF for sample "{sample_name}" contains a variant at position {row.POS} where sum of ref allele '
+                f'depth ({ref_dp}) and alt allele depth ({alt_dp}) does not equal the total depth ({total_dp}) '
+                f'reported by iVar (i.e. {ref_dp} + {alt_dp} = {sum_ref_alt_dp}; {sum_ref_alt_dp} != {total_dp}). Ref '
+                f'allele is "{row.REF}", alt allele is "{row.ALT}". iVar alt allele frequency: {record["ALT_FREQ"]}')
+        pos_fmt_val[row.POS] = record
+        pos_fmt_val[row.POS]['DP'] = total_dp
     df_ivar_info = pd.DataFrame(pos_fmt_val).transpose()
     df_ivar_info.index.name = 'POS'
     df_ivar_info.reset_index(inplace=True)
     df_merge = pd.merge(df, df_ivar_info, on='POS')
     df_merge['sample'] = sample_name
-    df_merge['DP'] = df_merge.ALT_DP + df_merge.REF_DP
     return df_merge.drop(columns=['ID', 'INFO', 'QUAL', 'FILTER', 'FORMAT', df.columns[-1], 'GT'])
 
 
@@ -402,7 +421,7 @@ def parse_nanopolish_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[
         if allele_count > 1:
             raise NotImplementedError(f'Handling of allele count of {allele_count} is not supported. '
                                       f'Only allele counts of 1 are supported.')
-        infos['DP'] = fwd_ref+fwd_alt+rev_ref+rev_alt
+        infos['DP'] = fwd_ref + fwd_alt + rev_ref + rev_alt
         infos['REF_DP'] = fwd_ref + rev_ref
         infos['ALT_DP'] = fwd_alt + rev_alt
         pos_info_val[row.POS] = infos
@@ -460,7 +479,7 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
                                                glob_patterns=SNPSIFT_GLOB_PATTERNS,
                                                sample_name_cleanup=SNPSIFT_SAMPLE_NAME_CLEANUP,
                                                single_entry_selector_func=snpsift_selector)
-    if sample_snpsift:
+    if not sample_snpsift:
         logger.warning(f'No SnpSift tables found in "{basedir}" using glob patterns "{SNPSIFT_GLOB_PATTERNS}"')
     sample_dfsnpsift = {}
     for sample, snpsift_path in sample_snpsift.items():
