@@ -26,6 +26,8 @@ def test_command_line_interface():
     with runner.isolated_filesystem():
         out_report = 'report.xlsx'
         result = runner.invoke(app, [str((dirpath / 'data').resolve().absolute()), out_report])
+        if result.exception:
+            raise result.exception
         assert result.exit_code == 0
         assert Path(out_report).exists()
         df = pd.read_excel(out_report)

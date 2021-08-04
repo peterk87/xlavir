@@ -19,8 +19,6 @@ def find_file_for_each_sample(basedir: Path,
             sample = extract_sample_name(p.name,
                                          remove=sample_name_cleanup)
             sample_files[sample].append(p)
-        if sample_files:
-            break
     sample_file = {}
     for sample, files in sample_files.items():
         if single_entry_selector_func:

@@ -6,7 +6,7 @@ from typing import Optional, List
 from xlavir import qc
 from xlavir.io import ct
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
-from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants, nextclade
+from xlavir.tools import mosdepth, samtools, consensus, pangolin, variants, nextclade, fastp
 from xlavir.tools.nextflow import exec_report
 from xlavir.tools.nextflow.exec_report import to_dataframe
 
@@ -28,6 +28,25 @@ def run(input_dir: Path,
     if logger.level == logging.DEBUG:
         for sample, info in sample_mapping_info.items():
             logger.debug(info.dict())
+    sample_total_reads = fastp.get_info(input_dir)
+    for sample, total_reads in sample_total_reads.items():
+        mapping_info = sample_mapping_info.get(sample, None)
+        if mapping_info is None:
+            logger.warning(
+                f'Found fastp total reads ({total_reads}) for sample "{sample}", '
+                f'but no such sample exists in sample mapping info dict: '
+                f'{list(sample_mapping_info.keys())}'
+            )
+            continue
+        if total_reads != mapping_info.n_total_reads:
+            logger.info(
+                f'Found fastp total reads ({total_reads}) for sample "{sample}". '
+                f'Samtools mapping info indicates total reads as '
+                f'{mapping_info.n_total_reads} '
+                f'({mapping_info.n_mapped_reads} mapped). '
+                f'Using fastp value for total reads.'
+            )
+            mapping_info.n_total_reads = total_reads
     sample_cts = ct.read_ct_table(ct_values_table) if ct_values_table else {}
     sample_variants = variants.get_info(input_dir)
 
