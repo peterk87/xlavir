@@ -1,3 +1,4 @@
+"""VCF and SnpEff/SnpSift parsing functions"""
 import logging
 import os
 import re
