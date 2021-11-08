@@ -98,4 +98,7 @@ def get_info(basedir: Path,
             pangolin_outputs = find_file_for_each_sample(basedir=basedir,
                                                          glob_patterns=PANGOLIN_GLOB_PATTERNS,
                                                          sample_name_cleanup=PANGOLIN_SAMPLE_NAME_CLEANUP)
-            return pd.concat([read_pangolin_csv(p, s) for s, p in pangolin_outputs.items()])
+            if pangolin_outputs:
+                return pd.concat([read_pangolin_csv(p, s) for s, p in pangolin_outputs.items()])
+            else:
+                return None

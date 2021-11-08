@@ -38,7 +38,8 @@ def read_mosdepth_bed(p: Path) -> pd.DataFrame:
 
 
 def get_interval_coords_bed(df: pd.DataFrame, threshold: int = 0) -> str:
-    df_below = df[df.depth <= threshold]
+    mask = df.depth == 0 if threshold == 0 else df.depth < threshold
+    df_below = df[mask]
     start_pos, end_pos = df_below.start_idx, df_below.end_idx
     coords = []
     for x, y in zip(start_pos, end_pos):

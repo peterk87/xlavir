@@ -17,7 +17,7 @@ def run(input_dir: Path,
         quality_reqs: Optional[qc.QualityRequirements],
         pangolin_lineage_csv: Optional[Path] = None,
         ct_values_table: Optional[Path] = None) -> List[ExcelSheetDataFrame]:
-    if quality_reqs:
+    if quality_reqs is None:
         quality_reqs = qc.QualityRequirements()
     nf_exec_info = exec_report.get_info(input_dir)
     sample_depth_info = mosdepth.get_info(input_dir, low_coverage_threshold=quality_reqs.low_coverage_threshold)
