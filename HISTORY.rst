@@ -2,6 +2,12 @@
 History
 =======
 
+0.5.3 (2021-11-09)
+------------------
+
+* Fixed shorter consensus sequences not being written to report
+* Improve nf-virontus VCF compatibility
+
 0.5.2 (2021-11-08)
 ------------------
 
