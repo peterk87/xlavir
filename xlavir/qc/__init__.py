@@ -115,7 +115,7 @@ def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDept
             comments += [f'Genome coverage below {quality_reqs.min_genome_coverage:.0%}']
         qc_comments.append('; '.join(comments))
     df_stats['qc_comment'] = qc_comments
-    df_stats.loc[mask_pass_breadth, 'qc_comment'] = ''
+    df_stats.loc[qc_pass_mask, 'qc_comment'] = ''
     df_stats.sort_values('sample', inplace=True)
 
     present_cols = set(df_stats.columns)

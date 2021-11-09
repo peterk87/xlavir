@@ -2,6 +2,25 @@
 History
 =======
 
+0.5.2 (2021-11-08)
+------------------
+
+Fixes and changes from PR `#15 <https://github.com/peterk87/xlavir/issues/15>`_
+
+Fixes:
+
+* low coverage coordinate output off by one (``xlavir.tools.mosdepth.get_interval_coords_bed``)
+* error on no Pangolin reports found (e.g. non-SARS-CoV-2 report) (``xlavir.tools.pangolin.get_info``)
+* user QC thresholds not being used (``xlavir.xlavir.run``)
+* not showing all QC fail comments (``xlavir.qc.create_qc_stats_dataframe``)
+* consensus sequences being too long for Excel cell character limit (32,767 characters); longer sequences are chunked into 80 character segments with one segment per line in consensus sheet  (``xlavir.tools.consensus.read_fasta``)
+
+Changes:
+
+* Ignore and skip unsupported VCFs instead of throwing NotImplementedError (``xlavir.tools.variants.get_info``)
+* In consensus sheet, only add QC comments on FASTA header rows if necessary (``xlavir.io.xl.add_comments``)
+
+
 0.5.1 (2021-08-04)
 ------------------
 

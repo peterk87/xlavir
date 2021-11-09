@@ -381,7 +381,6 @@ def add_comments(xlsx_path: Path,
                     f'samples in sheet "{SheetName.consensus.value}".')
         highlight_seq = False
         sample_name = ''
-
         dark_red = '260000'
         for i, row in enumerate(sheet.rows):
             cell = row[0]
@@ -389,6 +388,7 @@ def add_comments(xlsx_path: Path,
                 sample_name = cell.value[1:]
                 if sample_name in failed_samples:
                     highlight_seq = True
+                    # only add comment to cell containing failing sample fasta header
                     cell.comment = Comment(f'Warning: Sample "{sample_name}" has failed general NGS QC',
                                            author='xlavir')
                     cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
@@ -398,23 +398,19 @@ def add_comments(xlsx_path: Path,
                                      size=font.size,
                                      family=font.family)
                 else:
+                    highlight_seq = False
                     font: Font = cell.font
                     cell.font = Font(name='Courier New',
                                      color='000000',
                                      size=font.size,
                                      family=font.family)
-                    highlight_seq = False
             elif cell.value and highlight_seq:
-                cell.comment = Comment(f'Warning: Sample "{sample_name}" has failed general NGS QC',
-                                       author='xlavir')
-
                 cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
                 font: Font = cell.font
                 cell.font = Font(name='Courier New',
                                  color=dark_red,
                                  size=font.size,
                                  family=font.family)
-                highlight_seq = False
             else:
                 font: Font = cell.font
                 cell.font = Font(name='Courier New',

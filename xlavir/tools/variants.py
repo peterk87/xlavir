@@ -1,3 +1,4 @@
+"""VCF and SnpEff/SnpSift parsing functions"""
 import logging
 import os
 import re
@@ -473,7 +474,7 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
         else:
-            raise NotImplementedError()
+            logger.warning(f'Sample "{sample}" VCF file "{vcf_path}" with variant_caller={variant_caller} not supported. Skipping...')
 
     sample_snpsift = find_file_for_each_sample(basedir=basedir,
                                                glob_patterns=SNPSIFT_GLOB_PATTERNS,

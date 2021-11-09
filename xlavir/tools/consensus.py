@@ -5,34 +5,46 @@ from typing import List, Mapping
 
 import pandas as pd
 from Bio import SeqIO
+from Bio.SeqRecord import SeqRecord
 
-from ..util import find_file_for_each_sample
+from xlavir.util import find_file_for_each_sample
 
 SAMPLE_NAME_CLEANUP = [
-        re.compile(r'\.AF0\.\d+'),
-        '.consensus',
-        '.fasta',
-        '.fa',
-    ]
+    re.compile(r'\.AF0\.\d+'),
+    '.consensus',
+    '.fasta',
+    '.fa',
+]
 
 GLOB_PATTERNS = [
     '**/ivar/**/*.consensus.fa*',
     '**/*.consensus.fa*'
 ]
 
-
 logger = logging.getLogger(__name__)
+
+
+def chunk(s: str, n: int = 80) -> List[str]:
+    """Chunk string into segments of specified length.
+
+    >>> chunk(('wordsX' * 5), 11)
+    ['wordsXwords', 'XwordsXword', 'sXwordsX']
+    >>> chunk('x', 80)
+    ['x']
+    """
+    return [s[i:i + n] for i in range(0, len(s), n)]
 
 
 def read_fasta(sample: str, path: Path) -> List[str]:
     out = []
-    for rec in SeqIO.parse(path, format='fasta'):
-        out += [f'>{sample}', str(rec.seq)]
-    if len(out) > 2:
-        logger.info(f'More than 1 sequence in consensus sequence for sample "{sample}". '
-                    f'Appending sequence index starting at 1.')
-        for idx, i in enumerate(range(0, len(out), 2)):
-            out[i] = f'>{sample}-{idx + 1}'
+    rec: SeqRecord
+    for idx, rec in enumerate(SeqIO.parse(path, format='fasta')):
+        out.append(f'>{sample}' if idx == 0 else f'>{sample}-{idx}')
+        seq = str(rec.seq)
+        # if length of seq is over Excel cell character limit (32,767)
+        # then chunk seq up into 80 character chunks
+        if len(seq) > 32000:
+            out += chunk(seq, 80)
     return out
 
 
