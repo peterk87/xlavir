@@ -43,8 +43,7 @@ def read_fasta(sample: str, path: Path) -> List[str]:
         seq = str(rec.seq)
         # if length of seq is over Excel cell character limit (32,767)
         # then chunk seq up into 80 character chunks
-        if len(seq) > 32000:
-            out += chunk(seq, 80)
+        out += chunk(seq, 80) if len(seq) > 32000 else [seq]
     return out
 
 

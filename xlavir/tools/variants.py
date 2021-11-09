@@ -161,6 +161,7 @@ class VariantCaller(Enum):
 VCF_GLOB_PATTERNS = [
     '**/nanopolish/*.pass.vcf.gz',
     '**/ivar/*.vcf.gz',
+    '**/*.longshot.vcf',
     '**/*.vcf',
 ]
 
@@ -168,12 +169,17 @@ VCF_SAMPLE_NAME_CLEANUP = [
     re.compile(r'(\.pass)?\.vcf(\.gz)?$'),
     re.compile(r'\.AF0\.\d+(\.filt)?'),
     re.compile(r'\.0\.\d+AF(\.filt)?'),
+    re.compile(r'\.longshot'),
+    re.compile(r'\.snpeff'),
+    re.compile(r'\.no_fs'),
 ]
 
 SNPSIFT_GLOB_PATTERNS = [
     '**/ivar/**/*.snpSift.table.txt',
+    '**/ivar/**/*.snpsift.table.txt',
     '**/ivar/**/*.snpsift.txt',
     '**/*.snpSift.table.txt',
+    '**/*.snpsift.table.txt',
     '**/*.snpsift.txt',
 ]
 
