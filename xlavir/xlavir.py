@@ -48,7 +48,7 @@ def run(input_dir: Path,
             )
             mapping_info.n_total_reads = total_reads
     sample_cts = ct.read_ct_table(ct_values_table) if ct_values_table else {}
-    sample_variants = variants.get_info(input_dir)
+    sample_variants = variants.get_info(input_dir, qc_reqs=quality_reqs)
 
     dfs: List[ExcelSheetDataFrame] = []
     df_stats = qc.create_qc_stats_dataframe(sample_depth_info,
