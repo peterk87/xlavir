@@ -2,6 +2,14 @@
 History
 =======
 
+0.6.0 (2022-01-05)
+------------------
+
+* Add support for reading annotated Medaka VCF files (``medaka_variant`` VCF annotated with ``medaka tools annotate``)
+* Changed mutation string format to ``{gene}:{AA change} ({NT change}{extra})`` if there is a AA change
+* Added low coverage filtering of variants for Medaka VCF
+* "Variants Summary" table now sorted by nucleotide position
+
 0.5.3 (2021-11-09)
 ------------------
 
