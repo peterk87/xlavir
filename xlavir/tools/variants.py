@@ -462,7 +462,11 @@ def parse_medaka_vcf(df: pd.DataFrame, sample_name: str = None, qc_reqs: Quality
         ac_ref_fwd, ac_ref_rev, ac_alt_fwd, ac_alt_rev = infos['SR']
         infos['REF_DP'] = ac_ref_fwd + ac_ref_rev
         infos['ALT_DP'] = ac_alt_fwd + ac_alt_rev
+        if infos['REF_DP'] + infos['ALT_DP'] < qc_reqs.low_coverage_threshold:
+            continue
         pos_info_val[row.POS] = infos
+    if pos_info_val == {}:
+        return None
     df_medaka_info = pd.DataFrame(pos_info_val).transpose()
     df_medaka_info.index.name = 'POS'
     df_medaka_info.reset_index(inplace=True)

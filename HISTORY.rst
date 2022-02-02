@@ -2,6 +2,12 @@
 History
 =======
 
+0.6.1 (2022-02-01)
+------------------
+
+* Added more checks for Medaka VCFs from low coverage samples which may produce ValueError and ZeroDivisionError errors
+
+
 0.6.0 (2022-01-05)
 ------------------
 
