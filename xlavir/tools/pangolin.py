@@ -9,10 +9,11 @@ from xlavir.util import find_file_for_each_sample
 
 logger = logging.getLogger(__name__)
 
-PANGOLIN_CSV = 'pangolin.lineage_report.csv'
+PANGOLIN_CSV = 'pangolin.csv'
 
 PANGOLIN_GLOB_PATTERNS = [
     '**/*.pangolin.csv',
+    '**/pangolin.csv',
 ]
 
 PANGOLIN_SAMPLE_NAME_CLEANUP = [

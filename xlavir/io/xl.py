@@ -127,12 +127,16 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                                                                          include_header=esdf.include_header_width),
                                                           idx_and_cols)):
                     if col_name in float_cols:
+                        logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                         sheet.set_column(i, i, width, monospace_float_fmt)
                     elif col_name in perc_cols:
+                        logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                         sheet.set_column(i, i, width, monospace_perc_fmt)
                     elif col_name in perc_2dec_cols:
+                        logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                         sheet.set_column(i, i, width, monospace_perc_2dec_fmt)
                     else:
+                        logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                         sheet.set_column(i, i, width, monospace_fmt)
                 if not esdf.include_header_width:
                     for i, col_name in enumerate(idx_and_cols):
@@ -140,6 +144,7 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
 
             elif esdf.column_widths:
                 for i, (width, col_name) in enumerate(zip(esdf.column_widths, idx_and_cols)):
+                    logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                     sheet.set_column(i, i, width, monospace_wrap_fmt)
 
                 for i, idx in enumerate(esdf.df.index, 1):
@@ -237,7 +242,7 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                                             max_type='max')}
                                  )
 
-        if images_for_sheets and not images_added:
+        if images_for_sheets is not None and not images_added:
             add_images(images_for_sheets, book)
 
     df_qc = get_qc_df(dfs)

@@ -186,6 +186,7 @@ VCF_SAMPLE_NAME_CLEANUP = [
     re.compile(r'\.longshot'),
     re.compile(r'\.snpeff'),
     re.compile(r'\.no_fs'),
+    re.compile(r'\.merged'),
 ]
 
 SNPSIFT_GLOB_PATTERNS = [
