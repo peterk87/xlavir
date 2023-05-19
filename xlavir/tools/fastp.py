@@ -23,7 +23,7 @@ def parse_total_reads(p: Path) -> int:
             j = json.load(fh)
             total = j['summary']['before_filtering']['total_reads']
     except KeyError as ex:
-        logger.error(f'')
+        logger.error(f'Could not parse total number of reads from "{p}". Error: {ex}')
     return total
 
 

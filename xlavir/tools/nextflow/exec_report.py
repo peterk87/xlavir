@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class NextflowWorkflowExecInfo(BaseModel):
+    """Nextflow workflow execution information"""
     workflow: str
     execution_id: str
     start_time: str
@@ -24,11 +25,36 @@ class NextflowWorkflowExecInfo(BaseModel):
 
 
 def find_exec_report(basedir: Path) -> Path:
-    for p in basedir.rglob('execution_report*.html'):
-        return p
+    """Find most recently modified Nextflow execution report in a directory
+
+    It is assumed that there will be at least one Nextflow execution report
+    in the directory if it is a Nextflow output directory.
+
+    Args:
+        basedir (Path): Directory to search for Nextflow execution reports
+
+    Returns:
+        Path: Path to most recently modified Nextflow execution report
+
+    Raises:
+        FileNotFoundError: If no Nextflow execution report is found in the directory
+    """
+    reports = list(basedir.rglob('execution_report*.html'))
+    if reports:
+        reports.sort(key=lambda x: x.stat().st_mtime, reverse=True)
+        return reports[0]
+    raise FileNotFoundError(f'No Nextflow execution report found in "{basedir}"')
 
 
 def parse(path: Path) -> NextflowWorkflowExecInfo:
+    """Parse Nextflow execution HTML report
+
+    Args:
+        path (Path): Path to Nextflow execution report
+
+    Returns:
+        NextflowWorkflowExecInfo: Parsed Nextflow execution report
+    """
     with open(path) as fh:
         soup = BeautifulSoup(fh, 'html.parser')
         execution_id = re.sub(r'\[(\w+)].*', r'\1', soup.find('head').find('title').text)
@@ -64,7 +90,7 @@ def parse(path: Path) -> NextflowWorkflowExecInfo:
 def get_info(basedir: Path) -> Optional[NextflowWorkflowExecInfo]:
     exec_report_path = find_exec_report(basedir)
     if exec_report_path:
-        logger.info(f'Found Nextflow execution report')
+        logger.info(f'Found Nextflow execution report "{exec_report_path}"')
         return parse(exec_report_path)
     else:
         logger.warning(f'Could not find Nextflow execution report in "{basedir}". '

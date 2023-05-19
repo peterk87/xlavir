@@ -1,4 +1,6 @@
 """Excel spreadsheet IO functions"""
+
+import contextlib
 import logging
 from copy import copy
 from pathlib import Path
@@ -25,7 +27,7 @@ def copy_spreadsheet(src_path: Path,
 
     All cell values and styles are copied over as well as row heights, column widths, merged cells.
 
-    By default the 1st worksheet is copied over.
+    By default, the 1st worksheet is copied over.
 
     Args:
         src_path (Path): Source Excel spreadsheet path
@@ -64,9 +66,13 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                       output_xlsx: Path,
                       quality_reqs: QualityRequirements,
                       images_for_sheets: Optional[List[SheetImage]] = None):
-    """Write the output Excel XLSX file
+    """Write the output Excel XLSX file using the given dataframes.
 
-
+    Args:
+        dfs (List[ExcelSheetDataFrame]): List of ExcelSheetDataFrame objects to write to the output XLSX file
+        output_xlsx (Path): Path to the output XLSX file
+        quality_reqs (QualityRequirements): Quality requirements for the run
+        images_for_sheets (Optional[List[SheetImage]]): List of SheetImage objects to add to the output XLSX file
     """
     with pd.ExcelWriter(output_xlsx, engine='xlsxwriter') as writer:
         monospace = dict(font_name='Courier New')
@@ -147,7 +153,7 @@ def write_xlsx_report(dfs: List[ExcelSheetDataFrame],
                     logger.debug(f'{esdf.sheet_name}|Column {col_name} ({i}) width = {width}')
                     sheet.set_column(i, i, width, monospace_wrap_fmt)
 
-                for i, idx in enumerate(esdf.df.index, 1):
+                for i, idx in enumerate(esdf.df.index, start=1):
                     sheet.set_row(i, get_row_heights(esdf.df, idx), monospace_wrap_fmt)
 
             if esdf.sheet_name == SheetName.varmat.value:
@@ -309,8 +315,8 @@ def add_comments(xlsx_path: Path,
     logger.info(f'Loading workbook "{xlsx_path.name}" with openpyxl '
                 f'to highlight {len(failed_samples)} samples that have failed QC')
     book = openpyxl.load_workbook(xlsx_path)
-    logger.info(f'Loaded "{xlsx_path.name}" using openpyxl. Sheets: {book.get_sheet_names()}')
-    logger.info(f'Adjusting comment textbox sizes to fit text')
+    logger.info(f'Loaded "{xlsx_path.name}" using openpyxl. Sheets: {book.sheetnames}')
+    logger.info('Adjusting comment textbox sizes to fit text')
     for sheetname in book.sheetnames:
         for row in book[sheetname]:
             for cell in row:
@@ -327,7 +333,7 @@ def add_comments(xlsx_path: Path,
     ]
     light_red = 'FC9295'
     for sheet_name in sheet_names:
-        try:
+        with contextlib.suppress(KeyError):
             sheet: Worksheet = book[sheet_name]
             logger.info(f'Highlighting failed samples in sheet "{sheet_name}".')
             for i, row in enumerate(sheet.rows):
@@ -339,15 +345,12 @@ def add_comments(xlsx_path: Path,
                                            author='xlavir')
                     cell.fill = PatternFill(fill_type='solid',
                                             fgColor=light_red)
-        except KeyError:
-            pass
-
     esd_varmat = get_excel_sheet_df(esdfs, SheetName.varmat.value)
     esd_variants = get_excel_sheet_df(esdfs, SheetName.variants.value)
     if esd_varmat and esd_variants:
-        try:
+        with contextlib.suppress(KeyError):
             sheet: Worksheet = book[SheetName.varmat.value]
-            logger.info(f'Adding additional comments to variant matrix values')
+            logger.info('Adding additional comments to variant matrix values')
             df_varmat = esd_varmat.df
             variants: Dict[Tuple[str, str], Dict[str, Union[str, float, int]]] = esd_variants \
                 .df.reset_index() \
@@ -362,8 +365,7 @@ def add_comments(xlsx_path: Path,
                     if j == 0:
                         continue
                     mutation = df_varmat.columns.values[j - 1]
-                    variant = variants.get((sample, mutation), None)
-                    if variant:
+                    if variant := variants.get((sample, mutation), None):
                         variant_str = '\n'.join(f'{k}: {v}' for k, v in variant.items())
                         comment_text = f'Sample: {sample}\nMutation: {mutation}\n{variant_str}'
                     else:
@@ -372,10 +374,7 @@ def add_comments(xlsx_path: Path,
                                            author=f'xlavir version {__version__}',
                                            width=300,
                                            height=len(comment_text))
-        except KeyError:
-            pass
-
-    try:
+    with contextlib.suppress(KeyError):
         sheet: Worksheet = book[SheetName.consensus.value]
 
         sheet.column_dimensions['A'] = ColumnDimension(worksheet=sheet,
@@ -387,8 +386,9 @@ def add_comments(xlsx_path: Path,
         highlight_seq = False
         sample_name = ''
         dark_red = '260000'
-        for i, row in enumerate(sheet.rows):
+        for row in sheet.rows:
             cell = row[0]
+            font: Font = cell.font
             if cell.value[0] == '>':
                 sample_name = cell.value[1:]
                 if sample_name in failed_samples:
@@ -397,31 +397,25 @@ def add_comments(xlsx_path: Path,
                     cell.comment = Comment(f'Warning: Sample "{sample_name}" has failed general NGS QC',
                                            author='xlavir')
                     cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
-                    font: Font = cell.font
                     cell.font = Font(name='Courier New',
                                      color=dark_red,
                                      size=font.size,
                                      family=font.family)
                 else:
                     highlight_seq = False
-                    font: Font = cell.font
                     cell.font = Font(name='Courier New',
                                      color='000000',
                                      size=font.size,
                                      family=font.family)
             elif cell.value and highlight_seq:
                 cell.fill = PatternFill(fill_type='solid', fgColor=light_red)
-                font: Font = cell.font
                 cell.font = Font(name='Courier New',
                                  color=dark_red,
                                  size=font.size,
                                  family=font.family)
             else:
-                font: Font = cell.font
                 cell.font = Font(name='Courier New',
                                  color='000000',
                                  size=font.size,
                                  family=font.family)
-    except KeyError:
-        pass
     book.save(xlsx_path)

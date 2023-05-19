@@ -1,0 +1,95 @@
+[project]
+name = "xlavir"
+version = "1.0.0"
+description = "Excel report from viral sequencing analysis output"
+authors = [
+    { name = "Peter Kruczkiewicz", email = "peter.kruczkiewicz@gmail.com" }
+]
+keywords = [
+    "bioinformatics",
+    "nextflow",
+    "virus sequencing",
+    "excel report",
+]
+license = { file = "LICENSE" }
+readme = { file = "README.md", content-type = "text/markdown"}
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    'License :: OSI Approved :: MIT License',
+    'Natural Language :: English',
+    'Programming Language :: Python :: 3',
+    "Programming Language :: Python :: 3 :: Only",
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Unix Shell',
+    'Topic :: Scientific/Engineering :: Bio-Informatics',
+    'Topic :: Utilities',
+    "Operating System :: POSIX :: Linux",
+]
+
+dependencies = [
+    'typer',
+    'rich',
+    'pandas',
+    'numpy>=1.20.0',
+    'xlsxwriter',
+    'pydantic',
+    'beautifulsoup4',
+    'biopython',
+    'openpyxl',
+    'imageio',
+    'odfpy',
+    'pysam',
+]
+
+[project.optional-dependencies]
+dev = [
+    "twine",
+    "wheel",
+    "ruff",
+    "mypy"
+]
+
+test = [
+    "pytest>=3",
+    "pytest-runner",
+]
+
+[tool.setuptools]
+py-modules = ["xlavir"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+filterwarnings = [
+    "ignore:.*PytestConfigWarning.*Unknown config option.*",
+    "ignore::UserWarning",
+]
+
+[tool.ruff]
+line-length = 120
+
+[tool.mypy]
+files = ["xlavir", "tests"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "openpyxl",
+    "pandas",
+]
+
+[project.scripts]
+xlavir = "xlavir.cli:app"
+
+[project.urls]
+"Homepage" = "https://github.com/CFIA-NCFAD/xlavir"
+"Repository" = "https://github.com/CFIA-NCFAD/xlavir.git"
+"Bug Tracker" = "https://github.com/CFIA-NCFAD/xlavir/issues"
+
+[build-system]
+requires = ["setuptools", "wheel"]

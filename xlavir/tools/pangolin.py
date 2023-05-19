@@ -85,8 +85,10 @@ def read_pangolin_csv(path: Path, sample_name: str = None) -> pd.DataFrame:
     return df
 
 
-def get_info(basedir: Path,
-             pangolin_lineage_csv: Optional[Path] = None) -> Optional[pd.DataFrame]:
+def get_info(
+        basedir: Path,
+        pangolin_lineage_csv: Optional[Path] = None
+) -> Optional[pd.DataFrame]:
     if pangolin_lineage_csv:
         return read_pangolin_csv(pangolin_lineage_csv)
     else:

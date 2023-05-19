@@ -18,7 +18,7 @@ class SheetName(str, Enum):
 
 class ExcelSheetDataFrame:
     def __init__(self,
-                 sheet_name: SheetName,
+                 sheet_name: str,
                  df: pd.DataFrame,
                  pd_to_excel_kwargs: dict = None,
                  autofit: bool = True,
