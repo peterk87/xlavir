@@ -118,7 +118,7 @@ def list_get(
         xs: Optional[List],
         idx: int,
         default=None
-) -> Optional[Union[str, int, float, List[str], List[int], List[float]]]:
+) -> Optional[Union[str, int, float, List[Union[str, int, float]]]]:
     if xs is None:
         return default
     try:
@@ -127,7 +127,7 @@ def list_get(
         return default
 
 
-def try_parse_number(s: str) -> Union[int, float, str, List[float, int, str]]:
+def try_parse_number(s: str) -> Union[int, float, str, List[Union[float, int, str]]]:
     if ',' in s:
         xs = s.split(',')
         return [try_parse_number(x) for x in xs] # type: ignore[misc]
