@@ -1,20 +1,33 @@
 name: PyPI Deploy
-
 on:
-  push:
-    tags:
-      - v*.*.*
+  release:
+    types: [published]
+
+# Cancel if a newer run is started
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   pypi_deploy:
     name: PyPI Deploy
     runs-on: ubuntu-latest
-    # Only run for the NCFAD-CFIA/xlavir repo, for releases and pushes to master
-    if: ${{ github.repository == 'NCFAD-CFIA/xlavir' }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
-      - uses: casperdcl/deploy-pypi@v2
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
+      - name: Checkout source code
+        uses: actions/checkout@v3
+      - name: Set up Python 3.8
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel build
+          pip install .[dev]
+      - name: Build distribution
+        run: |
+          python -m build
+      - name: Publish dist to PyPI
+        if: github.repository == 'CFIA-NCFAD/xlavir'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.pypi_token }}
-          build: true
