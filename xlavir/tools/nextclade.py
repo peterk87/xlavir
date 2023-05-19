@@ -247,6 +247,7 @@ def get_info(basedir: Path) -> Dict[str, pd.DataFrame]:
     out = {}
     for sample, nextclade_path in sample_nextclade.items():
         out[sample] = read_nextclade_csv(nextclade_path, sample)
+        logger.info(f'Columns: {out[sample].columns}')
     return out
 
 
@@ -254,4 +255,6 @@ def to_dataframe(sample_nextclade: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     df = pd.concat(list(sample_nextclade.values()))
     df.sort_values('Sample', inplace=True)
     df.set_index('Sample', inplace=True)
-    return df[[x for _,x,_ in nextclade_cols if x in df.columns]]
+    ordered_cols = [x for _, x, _ in nextclade_cols if x in df.columns]
+    rest_cols = [x for x in df.columns if x not in ordered_cols]
+    return df[ordered_cols + rest_cols]

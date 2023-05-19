@@ -1,0 +1,19 @@
+name: '✨ Feature request'
+description: Suggest a new feature or enhancement for xlavir
+labels: [enhancement]
+
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem description
+      description: >
+        Please describe the behavior you want and the motivation. Please also provide
+        examples of how xlavir would be used if your feature were added.
+
+        If you're not sure what to write here, try imagining what the ideal
+        documentation of your new feature would look like. Then try to write it.
+      placeholder: >
+        I wish I could use xlavir to ...
+    validations:
+      required: true

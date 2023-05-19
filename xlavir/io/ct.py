@@ -9,12 +9,14 @@ logger = logging.getLogger(__name__)
 
 def validate_ct_table(df: pd.DataFrame) -> bool:
     if df.empty:
-        logger.error(f'Ct values table is empty! No Ct values present!')
+        logger.error('Ct values table is empty! No Ct values present!')
         return False
     n_rows, n_cols = df.shape
     if n_cols != 2:
         logger.error(
-            f'Ct values table expected to only have 2 columns, but {n_cols} were found with names: {", ".join(df.columns)}')
+            f'Ct values table expected to only have 2 columns, but {n_cols} '
+            f'were found with names: {", ".join(df.columns)}'
+        )
         return False
     return True
 

@@ -19,10 +19,10 @@ def test_command_line_interface():
     """Test the CLI."""
     result = runner.invoke(app)
     assert result.exit_code != 0
-    assert 'Error: Missing argument' in result.output
+    assert 'Missing argument' in result.output
     help_result = runner.invoke(app, ['--help'])
     assert help_result.exit_code == 0
-    assert 'Show this message and exit.' in help_result.output
+    assert 'Usage: ' in help_result.output
     with runner.isolated_filesystem():
         out_report = 'report.xlsx'
         result = runner.invoke(app, [str((dirpath / 'data').resolve().absolute()), out_report])

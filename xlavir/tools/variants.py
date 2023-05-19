@@ -2,7 +2,7 @@
 import logging
 import os
 import re
-from enum import Enum
+from dataclasses import dataclass
 from operator import itemgetter
 from pathlib import Path
 from typing import Dict, Tuple, List, Optional, Iterable, Union
@@ -163,19 +163,24 @@ class VariantStats(BaseModel):
     n_indel: int
 
 
-class VariantCaller(Enum):
+@dataclass
+class VariantCaller:
     iVar = 'iVar'
     Longshot = 'Longshot'
     Nanopolish = 'nanopolish'
     Medaka = 'medaka'
+    Clair3 = 'clair3'
+    Bcftools = 'bcftools'
 
 
 VCF_GLOB_PATTERNS = [
     '**/nanopolish/*.pass.vcf.gz',
     '**/ivar/*.vcf.gz',
+    '**/bcftools/*.vcf.gz',
     '**/*.filt.no_fs.vcf',
     '**/*.longshot.vcf',
     '**/*.vcf',
+    '**/*.vcf.gz',
 ]
 
 VCF_SAMPLE_NAME_CLEANUP = [
@@ -184,9 +189,11 @@ VCF_SAMPLE_NAME_CLEANUP = [
     re.compile(r'\.0\.\d+AF(\.filt)?'),
     re.compile(r'\.medaka'),
     re.compile(r'\.longshot'),
+    re.compile(r'\.clair3'),
     re.compile(r'\.snpeff'),
     re.compile(r'\.no_fs'),
     re.compile(r'\.merged'),
+    re.compile(r'\.filtered'),
 ]
 
 SNPSIFT_GLOB_PATTERNS = [
@@ -203,6 +210,7 @@ SNPSIFT_SAMPLE_NAME_CLEANUP = [
     re.compile(r'\.snp[sS]ift\.txt$'),
     re.compile(r'\.AF0\.\d+(\.filt)?'),
     re.compile(r'\.0\.\d+AF(\.filt)?'),
+    re.compile(r'\.filtered'),
 ]
 
 
@@ -239,6 +247,8 @@ def read_vcf(vcf_file: Path) -> Tuple[str, pd.DataFrame]:
         for line in fh:
             if line.startswith('##source='):
                 variant_caller = line.strip().replace('##source=', '')
+            if line.startswith('##bcftools_callVersion'):
+                variant_caller = 'bcftools'
             if line.startswith('##nanopolish'):
                 variant_caller = 'nanopolish'
             if line.startswith('##medaka_version'):
@@ -246,11 +256,16 @@ def read_vcf(vcf_file: Path) -> Tuple[str, pd.DataFrame]:
             if line.startswith('#CHROM'):
                 vcf_cols = line[1:].strip().split('\t')
                 break
-        df = pd.read_table(fh,
-                           comment='#',
-                           header=None,
-                           names=vcf_cols)
-        df = df[~df.duplicated(['CHROM', 'POS', 'ID', 'REF', 'ALT', 'FILTER'], keep='first')]
+        try:
+
+            df = pd.read_table(vcf_file,
+                               sep='\t',
+                               comment='#',
+                               header=None,
+                               names=vcf_cols)
+            df = df[~df.duplicated(['CHROM', 'POS', 'ID', 'REF', 'ALT', 'FILTER'], keep='first')]
+        except pd.errors.EmptyDataError:
+            return variant_caller, pd.DataFrame()
     return variant_caller, df
 
 
@@ -346,16 +361,18 @@ def simplify_snpsift(df: pd.DataFrame, sample_name: str) -> Optional[pd.DataFram
         else:
             series.append(df[c])
     df_out = pd.concat(series, axis=1)
-    mutation_desc = []
-    for row in df_out.itertuples():
-        mutation_desc.append(parse_aa(gene=row.gene,
-                                      ref=row.REF,
-                                      alt=row.ALT,
-                                      nt_pos=row.POS,
-                                      aa_pos=row.aa_pos,
-                                      snpeff_aa=row.aa,
-                                      effect=row.effect))
-
+    mutation_desc = [
+        parse_aa(
+            gene=row.gene,
+            ref=row.REF,
+            alt=row.ALT,
+            nt_pos=row.POS,
+            aa_pos=row.aa_pos,
+            snpeff_aa=row.aa,
+            effect=row.effect,
+        )
+        for row in df_out.itertuples()
+    ]
     df_out['mutation'] = mutation_desc
     df_out['sample'] = sample_name
     return df_out
@@ -442,7 +459,11 @@ def parse_longshot_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd
     return df_merge.loc[:, cols_to_keep]
 
 
-def parse_medaka_vcf(df: pd.DataFrame, sample_name: str = None, qc_reqs: QualityRequirements = None) -> Optional[pd.DataFrame]:
+def parse_medaka_vcf(
+        df: pd.DataFrame,
+        sample_name: str = None,
+        qc_reqs: QualityRequirements = None
+) -> Optional[pd.DataFrame]:
     if df.empty:
         return None
     if not sample_name:
@@ -479,21 +500,29 @@ def parse_medaka_vcf(df: pd.DataFrame, sample_name: str = None, qc_reqs: Quality
     return df_merge.loc[:, cols_to_keep]
 
 
-def parse_nanopolish_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.DataFrame]:
+def parse_nanopolish_vcf(
+        df: pd.DataFrame,
+        sample_name: str = None
+) -> Optional[pd.DataFrame]:
     if df.empty:
         return None
     if not sample_name:
         sample_name = df.columns[-1] if df.columns[-1] != 'sample' else None
         if sample_name is None:
-            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
+            raise ValueError(
+                f'Sample name is not defined for VCF: shape={df.shape}; '
+                f'columns={df.columns}'
+            )
     pos_info_val = {}
     for row in df.itertuples():
         infos = parse_vcf_info(row.INFO)
         fwd_ref, rev_ref, fwd_alt, rev_alt = infos['StrandSupport']
         allele_count = infos['AlleleCount']
         if allele_count > 1:
-            raise NotImplementedError(f'Handling of allele count of {allele_count} is not supported. '
-                                      f'Only allele counts of 1 are supported.')
+            raise NotImplementedError(
+                f'Handling of allele count of {allele_count} is not supported. '
+                f'Only allele counts of 1 are supported.'
+            )
         infos['DP'] = fwd_ref + fwd_alt + rev_ref + rev_alt
         infos['REF_DP'] = fwd_ref + rev_ref
         infos['ALT_DP'] = fwd_alt + rev_alt
@@ -508,15 +537,86 @@ def parse_nanopolish_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[
     cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
     return df_merge.loc[:, cols_to_keep]
 
+def parse_bcftools_vcf(df: pd.DataFrame, sample_name: str = None) -> Optional[pd.DataFrame]:
+    if df.empty:
+        return None
+    if not sample_name:
+        sample_name = df.columns[-1] if df.columns[-1] != 'sample' else None
+        if sample_name is None:
+            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
+    pos_info_val = {}
+    for row in df.itertuples():
+        infos = parse_vcf_info(row.INFO)
+        allele_count = infos['AC']
+        if allele_count > 1:
+            raise NotImplementedError(f'Handling of allele count of {allele_count} is not supported. '
+                                      f'Only allele counts of 1 are supported.')
+        ref_dp, alt_dp = infos['AD']
+        infos['REF_DP'] = ref_dp
+        infos['ALT_DP'] = alt_dp
+        pos_info_val[row.POS] = infos
+    df_bcftools_info = pd.DataFrame(pos_info_val).transpose()
+    df_bcftools_info.index.name = 'POS'
+    df_bcftools_info.reset_index(inplace=True)
+    df_merge = pd.merge(df, df_bcftools_info, on='POS')
+    df_merge['sample'] = sample_name
+    df_merge = df_merge[df_merge.DP > 0]
+    df_merge['ALT_FREQ'] = df_merge.ALT_DP / df_merge.DP
+    cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
+    return df_merge.loc[:, cols_to_keep]
+
 
 def parse_vcf_info(s: str) -> dict:
     out = {}
     for x in s.split(';'):
         if not x:
             continue
+        if '=' not in x:
+            continue
         key, val_str = x.split('=', maxsplit=1)
         out[key] = try_parse_number(val_str)
     return out
+
+
+def parse_clair3_vcf(
+        df: pd.DataFrame,
+        sample_name: str,
+        qc_reqs: QualityRequirements
+) -> Optional[pd.DataFrame]:
+    if df.empty:
+        return None
+    if not sample_name:
+        sample_name = df.columns[-1] if df.columns[-1] != 'SAMPLE' else None
+        if sample_name is None:
+            raise ValueError(f'Sample name is not defined for VCF: shape={df.shape}; columns={df.columns}')
+    pos_info_val = {}
+    for row in df.itertuples():
+        infos = parse_vcf_info(row.INFO)
+        # no DP INFO? skip this file
+        if 'DP' not in infos:
+            return None
+        depth = infos['DP']
+        if depth < qc_reqs.low_coverage_threshold:
+            continue
+        allele_fraction = infos['AF']
+        alt_dp = int(depth * allele_fraction)
+        ref_dp = depth - alt_dp
+        infos['ALT_DP'] = alt_dp
+        infos['REF_DP'] = ref_dp
+        if infos['REF_DP'] + infos['ALT_DP'] < qc_reqs.low_coverage_threshold:
+            continue
+        pos_info_val[row.POS] = infos
+    if pos_info_val == {}:
+        return None
+    df_clair3_info = pd.DataFrame(pos_info_val).transpose()
+    df_clair3_info.index.name = 'POS'
+    df_clair3_info.reset_index(inplace=True)
+    df_merge = pd.merge(df, df_clair3_info, on='POS')
+    df_merge['sample'] = sample_name
+    df_merge = df_merge[df_merge.DP > 0]
+    df_merge['ALT_FREQ'] = df_merge.AF
+    cols_to_keep = list({col for col, _, _ in variants_cols} & set(df_merge.columns))
+    return df_merge.loc[:, cols_to_keep]
 
 
 def get_info(basedir: Path, qc_reqs: QualityRequirements) -> Dict[str, pd.DataFrame]:
@@ -527,32 +627,47 @@ def get_info(basedir: Path, qc_reqs: QualityRequirements) -> Dict[str, pd.DataFr
     sample_dfvcf = {}
     for sample, vcf_path in sample_vcf.items():
         variant_caller, df_vcf = read_vcf(vcf_path)
-        if variant_caller.startswith(VariantCaller.iVar.value):
+        if variant_caller.startswith(VariantCaller.iVar):
             df_parsed_ivar_vcf = parse_ivar_vcf(df_vcf, sample)
             if df_parsed_ivar_vcf is not None:
                 sample_dfvcf[sample] = df_parsed_ivar_vcf
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
-        elif variant_caller.startswith(VariantCaller.Medaka.value):
+        elif variant_caller.startswith(VariantCaller.Bcftools):
+            df_bcftools_vcf = parse_bcftools_vcf(df_vcf, sample)
+            if df_bcftools_vcf is not None:
+                sample_dfvcf[sample] = df_bcftools_vcf
+            else:
+                logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
+        elif variant_caller.startswith(VariantCaller.Clair3):
+            df_clair3_vcf = parse_clair3_vcf(df_vcf, sample, qc_reqs)
+            if df_clair3_vcf is not None:
+                sample_dfvcf[sample] = df_clair3_vcf
+            else:
+                logger.warning(f'Sample "{sample}" has no entries in Clair3 VCF "{vcf_path}"')
+        elif variant_caller.startswith(VariantCaller.Medaka):
             df_medaka_vcf = parse_medaka_vcf(df_vcf, sample, qc_reqs)
             if df_medaka_vcf is not None:
                 sample_dfvcf[sample] = df_medaka_vcf
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
-        elif variant_caller.startswith(VariantCaller.Longshot.value):
+        elif variant_caller.startswith(VariantCaller.Longshot):
             df_longshot_vcf = parse_longshot_vcf(df_vcf, sample)
             if df_longshot_vcf is not None:
                 sample_dfvcf[sample] = df_longshot_vcf
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
-        elif variant_caller.startswith(VariantCaller.Nanopolish.value):
+        elif variant_caller.startswith(VariantCaller.Nanopolish):
             df_nanopolish_vcf = parse_nanopolish_vcf(df_vcf, sample)
             if df_nanopolish_vcf is not None:
                 sample_dfvcf[sample] = df_nanopolish_vcf
             else:
                 logger.warning(f'Sample "{sample}" has no entries in VCF "{vcf_path}"')
         else:
-            logger.warning(f'Sample "{sample}" VCF file "{vcf_path}" with variant_caller={variant_caller} not supported. Skipping...')
+            logger.warning(
+                f'Sample "{sample}" VCF file "{vcf_path}" with '
+                f'variant_caller={variant_caller} not supported. Skipping...'
+            )
 
     sample_snpsift = find_file_for_each_sample(basedir=basedir,
                                                glob_patterns=SNPSIFT_GLOB_PATTERNS,

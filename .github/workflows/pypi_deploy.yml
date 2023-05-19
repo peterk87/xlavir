@@ -8,11 +8,11 @@ jobs:
   pypi_deploy:
     name: PyPI Deploy
     runs-on: ubuntu-latest
-    # Only run for the peterk87/xlavir repo, for releases and pushes to master
-    if: ${{ github.repository == 'peterk87/xlavir' }}
+    # Only run for the NCFAD-CFIA/xlavir repo, for releases and pushes to master
+    if: ${{ github.repository == 'NCFAD-CFIA/xlavir' }}
     steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
+      - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
       - uses: casperdcl/deploy-pypi@v2
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
         with:

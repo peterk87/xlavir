@@ -90,13 +90,16 @@ def main(
 
     """
     from rich.traceback import install
-    install(show_locals=True, width=120, word_wrap=True)
+    install(show_locals=True, width=240, word_wrap=True)
 
-    logging.basicConfig(format='%(message)s',
-                        datefmt='[%Y-%m-%d %X]',
-                        level=logging.INFO if not verbose else logging.DEBUG,
-                        handlers=[RichHandler(rich_tracebacks=True,
-                                              tracebacks_show_locals=True)])
+    logging.basicConfig(
+        format='%(message)s',
+        datefmt='[%Y-%m-%d %X]',
+        level=logging.DEBUG if verbose else logging.INFO,
+        handlers=[
+            RichHandler(rich_tracebacks=True, tracebacks_show_locals=True)
+        ],
+    )
 
     images_for_sheets = None
     if image:

@@ -9,10 +9,10 @@ from xlavir.tools import mosdepth, samtools
 logger = logging.getLogger(__name__)
 
 
-def columns(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
-    return [
+def columns(low_coverage_threshold: int = 5, has_ct = False) -> List[Tuple[str, str, str]]:
+    cols = [
         ('sample', 'Sample', 'Sample name'),
-        ('ct_value', 'Ct Value', 'Real-time PCR Ct value'),
+        ('ct_value', 'Ct Value', 'Real-time PCR Ct value') if has_ct else None,
         (
             'qc_status',
             'QC Status',
@@ -79,6 +79,7 @@ def columns(low_coverage_threshold: int = 5) -> List[Tuple[str, str]]:
             f' coverage depth.'
         ),
     ]
+    return [x for x in cols if x is not None]
 
 
 def report_format(df: pd.DataFrame, low_coverage_threshold: int = 5) -> pd.DataFrame:
@@ -99,8 +100,10 @@ def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDept
         depth_info = sample_depth_info[sample].dict() if sample in sample_depth_info else {}
         mapping_info = sample_mapping_info[sample].dict() if sample in sample_mapping_info else {}
         merged_stats_info[sample] = {**depth_info, **mapping_info}
-        merged_stats_info[sample]['ct_value'] = sample_cts.get(sample, None)
-    df_stats = pd.DataFrame(merged_stats_info.values())
+        sample_ct = sample_cts.get(sample)
+        if sample_ct is not None:
+            merged_stats_info[sample]['ct_value'] = sample_ct
+    df_stats = pd.DataFrame(list(merged_stats_info.values()))
     mask_pass_depth = (df_stats.median_coverage >= quality_reqs.min_median_depth)
     mask_pass_breadth = (df_stats.genome_coverage >= quality_reqs.min_genome_coverage)
     qc_pass_mask = mask_pass_depth & mask_pass_breadth
@@ -119,7 +122,10 @@ def create_qc_stats_dataframe(sample_depth_info: Dict[str, mosdepth.MosdepthDept
     df_stats.sort_values('sample', inplace=True)
 
     present_cols = set(df_stats.columns)
-    output_cols = columns(quality_reqs.low_coverage_threshold)
+    output_cols = columns(
+        quality_reqs.low_coverage_threshold,
+        has_ct=bool(sample_cts)
+    )
     df_stats = df_stats.loc[:, [x for x, y, _ in output_cols if x in present_cols]]
 
     logger.debug(df_stats)

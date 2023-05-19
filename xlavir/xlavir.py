@@ -13,10 +13,12 @@ from xlavir.tools.nextflow.exec_report import to_dataframe
 logger = logging.getLogger(__name__)
 
 
-def run(input_dir: Path,
+def run(
+        input_dir: Path,
         quality_reqs: Optional[qc.QualityRequirements],
         pangolin_lineage_csv: Optional[Path] = None,
-        ct_values_table: Optional[Path] = None) -> List[ExcelSheetDataFrame]:
+        ct_values_table: Optional[Path] = None
+) -> List[ExcelSheetDataFrame]:
     if quality_reqs is None:
         quality_reqs = qc.QualityRequirements()
     nf_exec_info = exec_report.get_info(input_dir)
@@ -97,8 +99,10 @@ def run(input_dir: Path,
                                            column_widths=[max_index_length + 2] + [3 for _ in
                                                                                    range(df_varmap.columns.size)]))
         else:
-            logger.warning(f'No column "Mutation" found in variant info dataframe. SnpEff/SnpSift table may not have '
-                           f'been found or parsed correctly.')
+            logger.warning(
+                'No column "Mutation" found in variant info dataframe. '
+                'SnpEff/SnpSift table may not have been found or parsed correctly.'
+            )
 
     dfs.append(ExcelSheetDataFrame(sheet_name=SheetName.consensus.value,
                                    df=consensus.get_info(basedir=input_dir),

@@ -36,6 +36,11 @@ def chunk(s: str, n: int = 80) -> List[str]:
 
 
 def read_fasta(sample: str, path: Path) -> List[str]:
+    """Read consensus FASTA file into list of strings.
+
+    If consensus sequence is longer than Excel cell character limit (32,767)
+    then split the sequence into 80 character chunks.
+    """
     out = []
     rec: SeqRecord
     for idx, rec in enumerate(SeqIO.parse(path, format='fasta')):
@@ -61,4 +66,5 @@ def get_info(basedir: Path) -> pd.DataFrame:
     sample_fasta = find_file_for_each_sample(basedir,
                                              glob_patterns=GLOB_PATTERNS,
                                              sample_name_cleanup=SAMPLE_NAME_CLEANUP)
+    logger.info(f'Found {len(sample_fasta)} consensus FASTA files')
     return fasta_dataframe(sample_fasta)
