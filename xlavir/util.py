@@ -101,7 +101,7 @@ def get_col_widths(
 
 def get_row_heights(
         df: pd.DataFrame,
-        idx: int | str,
+        idx: Union[str, int],
         offset=0,
         multiplier=15
 ) -> int:
@@ -127,7 +127,7 @@ def list_get(
         return default
 
 
-def try_parse_number(s: str) -> int | float | str | list[float | int | str]:
+def try_parse_number(s: str) -> Union[int, float, str, List[float, int, str]]:
     if ',' in s:
         xs = s.split(',')
         return [try_parse_number(x) for x in xs] # type: ignore[misc]
