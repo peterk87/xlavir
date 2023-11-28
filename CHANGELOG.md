@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.1 (2023-11-28)
+
+* Fix issue with PyPI installation
+
 ## 1.0.0 (2023-05-19)
 
 * Added support for [Bcftools][] and [Clair3][] VCFs
