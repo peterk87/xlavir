@@ -15,7 +15,7 @@ from xlavir.images import SheetImage
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.qc import QualityRequirements
 from xlavir.util import get_col_widths, get_row_heights
-from xlavir import __version__
+from xlavir.__about__ import __version__
 
 logger = logging.getLogger(__name__)
 

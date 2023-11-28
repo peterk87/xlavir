@@ -9,7 +9,7 @@ import typer
 from rich.logging import RichHandler
 import pandas as pd
 
-from xlavir import __version__
+from xlavir.__about__ import __version__
 from xlavir.images import get_images_for_sheets
 from xlavir.io.excel_sheet_dataframe import ExcelSheetDataFrame, SheetName
 from xlavir.qc import QualityRequirements

@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "xlavir"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Excel report from viral sequencing analysis output"
 authors = [
     { name = "Peter Kruczkiewicz", email = "peter.kruczkiewicz@gmail.com" }
@@ -47,6 +51,9 @@ dependencies = [
     'pysam',
 ]
 
+[project.scripts]
+xlavir = "xlavir.cli:app"
+
 [project.optional-dependencies]
 dev = [
     "twine",
@@ -60,8 +67,14 @@ test = [
     "pytest-runner",
 ]
 
-[tool.setuptools]
-py-modules = ["xlavir"]
+[tool.hatch.build.targets.wheel]
+only-include = [
+  "xlavir",
+]
+
+[tool.hatch.version]
+path = "xlavir/__about__.py"
+
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -83,13 +96,7 @@ module = [
     "pandas",
 ]
 
-[project.scripts]
-xlavir = "xlavir.cli:app"
-
 [project.urls]
 "Homepage" = "https://github.com/CFIA-NCFAD/xlavir"
 "Repository" = "https://github.com/CFIA-NCFAD/xlavir.git"
 "Bug Tracker" = "https://github.com/CFIA-NCFAD/xlavir/issues"
-
-[build-system]
-requires = ["setuptools", "wheel"]
